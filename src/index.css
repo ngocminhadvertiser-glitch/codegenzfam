@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    background-color: #F8F9FE;
+    color: #0F172A;
+  }
+}
+
+/* CODE GenZ Brand Specific Palette & Gradients matching Code.png Logo */
+:root {
+  --brand-navy: #152C70;
+  --brand-indigo: #4338CA;
+  --brand-purple: #7C3AED;
+  --brand-magenta: #C026D3;
+  --brand-pink: #EC4899;
+  --brand-cyan: #00D2FF;
+  --brand-amber: #F59E0B;
+}
+
+/* Custom smooth brand utilities */
+.bg-brand-gradient {
+  background: linear-gradient(135deg, #152C70 0%, #4338CA 25%, #7C3AED 50%, #C026D3 75%, #EC4899 100%);
+}
+
+.bg-brand-gradient-hover {
+  background: linear-gradient(135deg, #0F172A 0%, #3730A3 25%, #6D28D9 50%, #A21CAF 75%, #DB2777 100%);
+}
+
+.bg-brand-vibrant {
+  background: linear-gradient(135deg, #00D2FF 0%, #3B82F6 30%, #7C3AED 65%, #EC4899 100%);
+}
+
+.text-brand-gradient {
+  background: linear-gradient(135deg, #152C70 0%, #4338CA 30%, #7C3AED 60%, #EC4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-brand-genz {
+  background: linear-gradient(90deg, #7C3AED 0%, #C026D3 35%, #EC4899 70%, #06B6D4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Card Glow and Glassmorphism accents */
+.card-brand {
+  background: #FFFFFF;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+}
+
+.card-brand-hover:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.1), 0 8px 10px -6px rgba(99, 102, 241, 0.05);
+}
+
+/* Custom smooth scrollbars matching CODE GenZ brand */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
