@@ -48,7 +48,7 @@ export const EmotionJournalModal: React.FC<EmotionJournalModalProps> = ({
   onClose,
   onRequestConsultationOpen,
 }) => {
-  const { createJournalEntry, currentUser } = useApp();
+  const { createJournalEntry, currentUser, isAuthenticated, openAuthModal } = useApp();
 
   const [selectedEmotion, setSelectedEmotion] = useState<EmotionType>('stressed');
   const [intensity, setIntensity] = useState<number>(7);
@@ -137,6 +137,27 @@ export const EmotionJournalModal: React.FC<EmotionJournalModalProps> = ({
 
         {/* Modal Form Body */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-7 space-y-6 max-h-[80vh] overflow-y-auto bg-slate-50/50">
+          {!isAuthenticated && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-3 text-xs text-amber-900">
+              <div className="flex items-center gap-2.5">
+                <span className="text-base">💡</span>
+                <p>
+                  <strong>Chế độ trải nghiệm:</strong> Bạn có thể viết thử nhật ký. Hãy đăng nhập tài khoản để lưu trữ vĩnh viễn và đồng bộ dữ liệu vào cơ sở dữ liệu cá nhân.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openAuthModal('login');
+                }}
+                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-extrabold text-[10px] uppercase rounded-xl whitespace-nowrap shadow-xs"
+              >
+                Đăng nhập
+              </button>
+            </div>
+          )}
+
           {error && (
             <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs font-bold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />

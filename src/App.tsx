@@ -18,11 +18,12 @@ import { AIChatAssistantModal } from './components/ai/AIChatAssistantModal';
 import { HappinessPointsModal } from './components/happiness/HappinessPointsModal';
 import { PrivacySecurityModal } from './components/privacy/PrivacySecurityModal';
 import { DataManagementModal } from './components/data/DataManagementModal';
+import { FamilyManagementModal } from './components/family/FamilyManagementModal';
 import { AuthModal } from './components/auth/AuthModal';
-import { Sparkles, MessageCircle, Heart, ShieldCheck, Database } from 'lucide-react';
+import { Sparkles, MessageCircle, Heart, ShieldCheck, Database, Users } from 'lucide-react';
 
 const MainApp: React.FC = () => {
-  const { currentUser, activeTab, setActiveTab } = useApp();
+  const { currentUser, activeTab, setActiveTab, isAuthenticated, openAuthModal } = useApp();
 
   // Modal States
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
@@ -34,6 +35,17 @@ const MainApp: React.FC = () => {
   const [isHappinessModalOpen, setIsHappinessModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isDataManagementOpen, setIsDataManagementOpen] = useState(false);
+  const [isFamilyManagementOpen, setIsFamilyManagementOpen] = useState(false);
+  const [familyModalInitialTab, setFamilyModalInitialTab] = useState<'overview' | 'invite' | 'invitations' | 'all_families'>('overview');
+
+  const handleOpenFamilyManagement = (tab: 'overview' | 'invite' | 'invitations' | 'all_families' = 'overview') => {
+    if (!isAuthenticated) {
+      openAuthModal('login');
+      return;
+    }
+    setFamilyModalInitialTab(tab);
+    setIsFamilyManagementOpen(true);
+  };
 
   const handleOpenNewConsultation = (defaultJournalId?: string) => {
     setConsultationDefaultJournalId(defaultJournalId);
@@ -56,6 +68,7 @@ const MainApp: React.FC = () => {
               onOpenDeepTalk={() => setActiveTab('deeptalk')}
               onOpenChallenge={() => setActiveTab('challenge')}
               onOpenAIChat={() => setIsAIChatModalOpen(true)}
+              onOpenFamilyManagement={handleOpenFamilyManagement}
             />
           );
         }
@@ -65,6 +78,7 @@ const MainApp: React.FC = () => {
               onOpenDeepTalk={() => setActiveTab('deeptalk')}
               onOpenChallenge={() => setActiveTab('challenge')}
               onOpenAIChat={() => setIsAIChatModalOpen(true)}
+              onOpenFamilyManagement={handleOpenFamilyManagement}
             />
           );
         }
@@ -154,6 +168,7 @@ const MainApp: React.FC = () => {
         onOpenHappiness={() => setIsHappinessModalOpen(true)}
         onOpenAIChat={() => setIsAIChatModalOpen(true)}
         onOpenDataManagement={() => setIsDataManagementOpen(true)}
+        onOpenFamilyManagement={handleOpenFamilyManagement}
       />
 
       {/* Role Banner & Nav */}
@@ -181,6 +196,18 @@ const MainApp: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
+            {isAuthenticated && (
+              <>
+                <button
+                  onClick={() => handleOpenFamilyManagement('overview')}
+                  className="flex items-center gap-1 hover:text-indigo-600 transition-colors"
+                >
+                  <Users className="w-4 h-4 text-indigo-600" />
+                  <span>Kết Nối Tổ Ấm & Thành Viên</span>
+                </button>
+                <span>•</span>
+              </>
+            )}
             <button
               onClick={() => setIsPrivacyModalOpen(true)}
               className="flex items-center gap-1 hover:text-indigo-600 transition-colors"
@@ -249,6 +276,12 @@ const MainApp: React.FC = () => {
       <DataManagementModal
         isOpen={isDataManagementOpen}
         onClose={() => setIsDataManagementOpen(false)}
+      />
+
+      <FamilyManagementModal
+        isOpen={isFamilyManagementOpen}
+        onClose={() => setIsFamilyManagementOpen(false)}
+        initialTab={familyModalInitialTab}
       />
 
       <AuthModal />

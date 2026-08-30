@@ -4,6 +4,7 @@ import path from "path";
 import {
   User,
   Family,
+  FamilyInvitation,
   EmotionJournalEntry,
   FamilyJournalEntry,
   ConsultationSession,
@@ -150,7 +151,22 @@ function createTables(): void {
       happinessPoints INTEGER DEFAULT 0,
       streakDays INTEGER DEFAULT 0,
       createdAt TEXT,
-      avatarIcon TEXT
+      avatarIcon TEXT,
+      description TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS family_invitations (
+      id TEXT PRIMARY KEY,
+      familyId TEXT NOT NULL,
+      familyName TEXT NOT NULL,
+      familyCode TEXT NOT NULL,
+      senderId TEXT NOT NULL,
+      senderName TEXT NOT NULL,
+      senderRole TEXT NOT NULL,
+      recipientEmailOrPhone TEXT NOT NULL,
+      targetFamilyRole TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      createdAt TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS emotion_journals (
@@ -716,7 +732,170 @@ export function getAllFamilies(): Family[] {
     streakDays: Number(r.streakDays || 0),
     createdAt: r.createdAt,
     avatarIcon: r.avatarIcon || undefined,
+    description: r.description || undefined,
   }));
+}
+
+export function getFamilyById(id: string): Family | null {
+  const r = queryOne<any>("SELECT * FROM families WHERE id = ?", [id]);
+  if (!r) return null;
+  return {
+    id: r.id,
+    name: r.name,
+    familyCode: r.familyCode,
+    studentIds: JSON.parse(r.studentIds || "[]"),
+    parentIds: JSON.parse(r.parentIds || "[]"),
+    happinessPoints: Number(r.happinessPoints || 0),
+    streakDays: Number(r.streakDays || 0),
+    createdAt: r.createdAt,
+    avatarIcon: r.avatarIcon || undefined,
+    description: r.description || undefined,
+  };
+}
+
+export function findFamilyByCode(code: string): Family | null {
+  const clean = code.trim().toUpperCase();
+  const r = queryOne<any>("SELECT * FROM families WHERE UPPER(familyCode) = ?", [clean]);
+  if (!r) return null;
+  return {
+    id: r.id,
+    name: r.name,
+    familyCode: r.familyCode,
+    studentIds: JSON.parse(r.studentIds || "[]"),
+    parentIds: JSON.parse(r.parentIds || "[]"),
+    happinessPoints: Number(r.happinessPoints || 0),
+    streakDays: Number(r.streakDays || 0),
+    createdAt: r.createdAt,
+    avatarIcon: r.avatarIcon || undefined,
+    description: r.description || undefined,
+  };
+}
+
+export function createFamily(family: Family): void {
+  execute(
+    `INSERT INTO families (id, name, familyCode, studentIds, parentIds, happinessPoints, streakDays, createdAt, avatarIcon, description)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      family.id,
+      family.name,
+      family.familyCode.toUpperCase(),
+      JSON.stringify(family.studentIds || []),
+      JSON.stringify(family.parentIds || []),
+      family.happinessPoints || 0,
+      family.streakDays || 0,
+      family.createdAt || new Date().toISOString(),
+      family.avatarIcon || '🏡',
+      family.description || null,
+    ]
+  );
+}
+
+export function updateFamily(family: Family): void {
+  execute(
+    `UPDATE families 
+     SET name = ?, familyCode = ?, studentIds = ?, parentIds = ?, happinessPoints = ?, streakDays = ?, avatarIcon = ?, description = ?
+     WHERE id = ?`,
+    [
+      family.name,
+      family.familyCode.toUpperCase(),
+      JSON.stringify(family.studentIds || []),
+      JSON.stringify(family.parentIds || []),
+      family.happinessPoints || 0,
+      family.streakDays || 0,
+      family.avatarIcon || '🏡',
+      family.description || null,
+      family.id,
+    ]
+  );
+}
+
+export function deleteFamily(id: string): void {
+  execute("DELETE FROM families WHERE id = ?", [id]);
+  execute("UPDATE users SET familyId = NULL WHERE familyId = ?", [id]);
+}
+
+export function addMemberToFamily(familyId: string, userId: string, role: string, familyRole?: string): { success: boolean; message: string; family?: Family } {
+  const fam = getFamilyById(familyId);
+  if (!fam) {
+    return { success: false, message: "Không tìm thấy nhóm gia đình." };
+  }
+
+  const studentIds = [...fam.studentIds];
+  const parentIds = [...fam.parentIds];
+
+  if (role === "student") {
+    if (!studentIds.includes(userId)) studentIds.push(userId);
+  } else if (role === "parent") {
+    if (!parentIds.includes(userId)) parentIds.push(userId);
+  }
+
+  fam.studentIds = studentIds;
+  fam.parentIds = parentIds;
+  updateFamily(fam);
+
+  // Update user's familyId and familyRole
+  execute(
+    "UPDATE users SET familyId = ?, familyRole = COALESCE(?, familyRole) WHERE id = ?",
+    [familyId, familyRole || (role === 'student' ? 'student' : 'guardian'), userId]
+  );
+
+  return { success: true, message: `Đã thêm thành viên vào nhóm "${fam.name}" thành công!`, family: fam };
+}
+
+export function removeMemberFromFamily(familyId: string, userId: string): { success: boolean; message: string; family?: Family } {
+  const fam = getFamilyById(familyId);
+  if (!fam) {
+    return { success: false, message: "Không tìm thấy nhóm gia đình." };
+  }
+
+  fam.studentIds = fam.studentIds.filter((id) => id !== userId);
+  fam.parentIds = fam.parentIds.filter((id) => id !== userId);
+  updateFamily(fam);
+
+  execute("UPDATE users SET familyId = NULL WHERE id = ?", [userId]);
+  return { success: true, message: `Đã hủy kết nối thành viên khỏi nhóm gia đình.`, family: fam };
+}
+
+export function getAllFamilyInvitations(): FamilyInvitation[] {
+  const rows = queryAll<any>("SELECT * FROM family_invitations ORDER BY createdAt DESC");
+  return rows.map((r) => ({
+    id: r.id,
+    familyId: r.familyId,
+    familyName: r.familyName,
+    familyCode: r.familyCode,
+    senderId: r.senderId,
+    senderName: r.senderName,
+    senderRole: r.senderRole,
+    recipientEmailOrPhone: r.recipientEmailOrPhone,
+    targetFamilyRole: r.targetFamilyRole,
+    status: r.status,
+    createdAt: r.createdAt,
+  }));
+}
+
+export function createFamilyInvitation(inv: FamilyInvitation): void {
+  execute(
+    `INSERT INTO family_invitations (id, familyId, familyName, familyCode, senderId, senderName, senderRole, recipientEmailOrPhone, targetFamilyRole, status, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      inv.id,
+      inv.familyId,
+      inv.familyName,
+      inv.familyCode,
+      inv.senderId,
+      inv.senderName,
+      inv.senderRole,
+      inv.recipientEmailOrPhone,
+      inv.targetFamilyRole,
+      inv.status || 'pending',
+      inv.createdAt || new Date().toISOString(),
+    ]
+  );
+}
+
+export function respondFamilyInvitation(id: string, status: 'accepted' | 'declined'): { success: boolean; message: string } {
+  execute("UPDATE family_invitations SET status = ? WHERE id = ?", [status, id]);
+  return { success: true, message: status === 'accepted' ? 'Đã chấp nhận lời mời tham gia gia đình.' : 'Đã từ chối lời mời.' };
 }
 
 export function getAllJournals(): EmotionJournalEntry[] {
@@ -1207,7 +1386,7 @@ export function addAuditLog(log: SecurityAuditLog): void {
 
 export function joinFamilyWithCode(userId: string, userRole: string, code: string): { success: boolean; message: string; family?: Family } {
   const cleanCode = code.trim().toUpperCase();
-  const famRow = queryOne<any>("SELECT * FROM families WHERE familyCode = ? OR familyCode = 'CODE-8899'", [cleanCode]);
+  const famRow = queryOne<any>("SELECT * FROM families WHERE UPPER(familyCode) = ?", [cleanCode]);
   if (!famRow) {
     return { success: false, message: "Mã gia đình không tồn tại hoặc đã hết hạn." };
   }
@@ -1250,6 +1429,7 @@ export function joinFamilyWithCode(userId: string, userRole: string, code: strin
 export function getFullSqliteSnapshot() {
   const users = getAllUsers();
   const families = getAllFamilies();
+  const familyInvitations = getAllFamilyInvitations();
   const journalEntries = getAllJournals();
   const familyJournals = getAllFamilyJournals();
   const consultations = getAllConsultations();
@@ -1268,7 +1448,9 @@ export function getFullSqliteSnapshot() {
     databaseEngine: "SQLite 3 (Persistent)",
     databaseFile: "codegenz.sqlite",
     users,
+    families,
     family: families[0] || INITIAL_FAMILIES[0],
+    familyInvitations,
     journalEntries,
     familyJournals,
     consultations,

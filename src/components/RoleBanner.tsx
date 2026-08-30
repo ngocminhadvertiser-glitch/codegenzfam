@@ -23,9 +23,20 @@ export const RoleBanner: React.FC<RoleBannerProps> = ({
   onOpenNewJournal,
   onOpenNewConsultation,
 }) => {
-  const { currentUser, activeTab, setActiveTab } = useApp();
+  const { currentUser, activeTab, setActiveTab, isAuthenticated, openAuthModal } = useApp();
 
   const getRoleHeaderInfo = () => {
+    if (!isAuthenticated) {
+      return {
+        title: 'Chào mừng bạn đến với CODE GenZ 🌟',
+        subtitle: 'Nền tảng hỗ trợ sức khỏe tinh thần & nhật ký cảm xúc bảo mật, kết nối thấu cảm giữa học sinh THPT, cha mẹ và chuyên gia tâm lý học đường.',
+        themeClass: 'bg-gradient-to-r from-[#1E1B4B] via-[#4338CA] to-[#831843] text-white',
+        badgeText: 'Khám phá Nền tảng C-O-D-E',
+        badgeColor: 'bg-white/20 text-amber-200 border border-white/25',
+        accentBtnClass: 'bg-gradient-to-r from-[#6366F1] via-[#8B5CF6] to-[#EC4899] hover:from-[#4F46E5] text-white shadow-purple-600/30',
+      };
+    }
+
     switch (currentUser.role) {
       case 'student':
         return {
@@ -88,6 +99,24 @@ export const RoleBanner: React.FC<RoleBannerProps> = ({
 
   return (
     <div className="w-full mb-6 sm:mb-8">
+      {/* Guest Mode Notification when logged out */}
+      {!isAuthenticated && (
+        <div className="bg-amber-500 text-slate-950 px-4 py-2.5 text-xs font-semibold shadow-xs flex flex-wrap items-center justify-between gap-2 border-b border-amber-600/30">
+          <div className="flex items-center gap-2">
+            <span className="bg-slate-950 text-amber-300 text-[10px] uppercase font-black px-2 py-0.5 rounded-full">
+              Khách
+            </span>
+            <span>Bạn đang trải nghiệm ở chế độ xem thử. Vui lòng đăng nhập để lưu trữ dữ liệu cá nhân an toàn.</span>
+          </div>
+          <button
+            onClick={() => openAuthModal('login')}
+            className="px-3 py-1 bg-slate-950 hover:bg-slate-900 text-white rounded-full text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+          >
+            Đăng nhập ngay
+          </button>
+        </div>
+      )}
+
       {/* Philosophy mini bar */}
       <div className="bg-[#0F172A] text-white py-2 px-4 text-xs shadow-inner">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
@@ -127,7 +156,7 @@ export const RoleBanner: React.FC<RoleBannerProps> = ({
                 <span className={`text-[10px] font-extrabold uppercase tracking-widest px-3 py-0.5 rounded-full ${info.badgeColor}`}>
                   {info.badgeText}
                 </span>
-                {currentUser.grade && (
+                {isAuthenticated && currentUser.grade && (
                   <span className="text-[10px] font-bold text-slate-200 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/20 uppercase tracking-wider">
                     {currentUser.grade}
                   </span>
@@ -142,9 +171,26 @@ export const RoleBanner: React.FC<RoleBannerProps> = ({
             </div>
           </div>
 
-          {/* Quick Action Button */}
+          {/* Quick Action Buttons */}
           <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-            {currentUser.role === 'student' && (
+            {!isAuthenticated ? (
+              <>
+                <button
+                  onClick={() => openAuthModal('login')}
+                  className="px-5 py-2.5 bg-gradient-to-r from-[#EC4899] to-[#F59E0B] hover:from-[#DB2777] hover:to-[#D97706] active:scale-95 text-xs font-black uppercase tracking-wider text-slate-950 rounded-xl shadow-lg transition-all flex items-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4 text-slate-950" />
+                  Đăng nhập ngay
+                </button>
+                <button
+                  onClick={() => openAuthModal('register')}
+                  className="px-5 py-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-white text-xs font-bold uppercase tracking-wider rounded-xl backdrop-blur-md border border-white/20 transition-all flex items-center gap-2"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  Đăng ký tài khoản
+                </button>
+              </>
+            ) : currentUser.role === 'student' ? (
               <>
                 <button
                   onClick={onOpenNewJournal}
@@ -161,8 +207,7 @@ export const RoleBanner: React.FC<RoleBannerProps> = ({
                   Gửi câu hỏi tham vấn
                 </button>
               </>
-            )}
-            {currentUser.role === 'parent' && (
+            ) : currentUser.role === 'parent' ? (
               <button
                 onClick={() => setActiveTab('journal')}
                 className={`px-5 py-2.5 ${info.accentBtnClass} active:scale-95 text-xs font-extrabold uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2`}
@@ -170,8 +215,7 @@ export const RoleBanner: React.FC<RoleBannerProps> = ({
                 <BookOpen className="w-4 h-4" />
                 Xem nhật ký con chia sẻ
               </button>
-            )}
-            {currentUser.role === 'psychologist' && (
+            ) : currentUser.role === 'psychologist' ? (
               <button
                 onClick={() => setActiveTab('consultation')}
                 className={`px-5 py-2.5 ${info.accentBtnClass} active:scale-95 text-xs font-extrabold uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2`}
@@ -179,7 +223,7 @@ export const RoleBanner: React.FC<RoleBannerProps> = ({
                 <MessageCircleQuestion className="w-4 h-4" />
                 Xem hàng đợi tham vấn
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

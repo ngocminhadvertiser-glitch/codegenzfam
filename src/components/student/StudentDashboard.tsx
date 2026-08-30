@@ -15,6 +15,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { aiService } from '../../services/aiService';
+import { FamilyGroupWidget } from '../family/FamilyGroupWidget';
 
 interface StudentDashboardProps {
   onOpenNewJournal: () => void;
@@ -22,6 +23,7 @@ interface StudentDashboardProps {
   onOpenDeepTalk: () => void;
   onOpenChallenge: () => void;
   onOpenAIChat: () => void;
+  onOpenFamilyManagement?: (tab?: 'overview' | 'invite' | 'invitations' | 'all_families') => void;
 }
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
@@ -30,6 +32,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onOpenDeepTalk,
   onOpenChallenge,
   onOpenAIChat,
+  onOpenFamilyManagement = () => {},
 }) => {
   const {
     currentUser,
@@ -41,10 +44,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     deepTalkTopics,
     confirmChallengeTask,
     setActiveTab,
+    isAuthenticated,
+    openAuthModal,
   } = useApp();
 
-  const myJournals = journalEntries.filter((j) => j.studentId === currentUser.id);
-  const myConsultations = consultations.filter((c) => c.studentId === currentUser.id);
+  const myJournals = isAuthenticated ? journalEntries.filter((j) => j.studentId === currentUser.id) : [];
+  const myConsultations = isAuthenticated ? consultations.filter((c) => c.studentId === currentUser.id) : [];
 
   // Active challenge is day 9 (or latest in progress)
   const currentDay = 9;
@@ -100,29 +105,54 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 Nhật ký cảm xúc hôm nay
               </span>
               <h2 className="text-2xl sm:text-3xl font-extrabold mt-3 tracking-tight">
-                Hôm nay bạn cảm thấy thế nào, {currentUser.name.split(' ').pop()}? ✨
+                {isAuthenticated
+                  ? `Hôm nay bạn cảm thấy thế nào, ${currentUser.name.split(' ').pop()}? ✨`
+                  : 'Hôm nay bạn cảm thấy thế nào? ✨'}
               </h2>
               <p className="text-xs sm:text-sm text-purple-100 mt-2 font-normal leading-relaxed">
-                Dành 2 phút ghi lại cảm xúc để giải tỏa tâm trí. Bạn toàn quyền quyết định: Chỉ lưu riêng tư, chia sẻ cho Cha mẹ, hay gửi Chuyên gia tư vấn.
+                {isAuthenticated
+                  ? 'Dành 2 phút ghi lại cảm xúc để giải tỏa tâm trí. Bạn toàn quyền quyết định: Chỉ lưu riêng tư, chia sẻ cho Cha mẹ, hay gửi Chuyên gia tư vấn.'
+                  : 'Đăng nhập tài khoản để bắt đầu ghi nhật ký cảm xúc cá nhân, theo dõi sức khỏe tâm lý và kết nối thấu cảm cùng gia đình.'}
               </p>
             </div>
             <span className="text-4xl hidden sm:block opacity-90 drop-shadow-sm">💖</span>
           </div>
 
           <div className="relative z-10 mt-6 flex flex-wrap items-center gap-3">
-            <button
-              onClick={onOpenNewJournal}
-              className="px-5 py-3 bg-white hover:bg-slate-50 active:scale-95 text-purple-900 font-extrabold text-xs uppercase tracking-wider rounded-full shadow-md transition-all flex items-center gap-2"
-            >
-              <BookOpen className="w-4 h-4 text-purple-700" />
-              Ghi nhật ký cảm xúc ngay
-            </button>
-            <button
-              onClick={() => setActiveTab('journal')}
-              className="px-5 py-3 bg-white/15 hover:bg-white/25 text-white font-bold text-xs uppercase tracking-wider rounded-full backdrop-blur-md border border-white/20 transition-all"
-            >
-              Xem nhật ký đã lưu ({myJournals.length})
-            </button>
+            {!isAuthenticated ? (
+              <>
+                <button
+                  onClick={() => openAuthModal('login')}
+                  className="px-5 py-3 bg-white hover:bg-slate-50 active:scale-95 text-purple-900 font-extrabold text-xs uppercase tracking-wider rounded-full shadow-md transition-all flex items-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4 text-purple-700" />
+                  Đăng nhập để ghi nhật ký
+                </button>
+                <button
+                  onClick={onOpenAIChat}
+                  className="px-5 py-3 bg-white/15 hover:bg-white/25 text-white font-bold text-xs uppercase tracking-wider rounded-full backdrop-blur-md border border-white/20 transition-all flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  Tư vấn cùng AI CODE
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={onOpenNewJournal}
+                  className="px-5 py-3 bg-white hover:bg-slate-50 active:scale-95 text-purple-900 font-extrabold text-xs uppercase tracking-wider rounded-full shadow-md transition-all flex items-center gap-2"
+                >
+                  <BookOpen className="w-4 h-4 text-purple-700" />
+                  Ghi nhật ký cảm xúc ngay
+                </button>
+                <button
+                  onClick={() => setActiveTab('journal')}
+                  className="px-5 py-3 bg-white/15 hover:bg-white/25 text-white font-bold text-xs uppercase tracking-wider rounded-full backdrop-blur-md border border-white/20 transition-all"
+                >
+                  Xem nhật ký đã lưu ({myJournals.length})
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -157,6 +187,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Connected Family Group & Members Widget */}
+      <FamilyGroupWidget onOpenFamilyModal={onOpenFamilyManagement} />
 
       {/* Main Grid: 2 Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

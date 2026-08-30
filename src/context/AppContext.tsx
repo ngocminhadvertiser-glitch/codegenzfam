@@ -3,6 +3,8 @@ import confetti from 'canvas-confetti';
 import {
   User,
   Family,
+  FamilyInvitation,
+  FamilyRole,
   EmotionJournalEntry,
   ConsultationSession,
   ConsultationStatus,
@@ -43,6 +45,8 @@ interface AppContextType {
   currentUser: User;
   users: User[];
   family: Family;
+  families: Family[];
+  familyInvitations: FamilyInvitation[];
   journalEntries: EmotionJournalEntry[];
   consultations: ConsultationSession[];
   deepTalkTopics: DeepTalkTopic[];
@@ -100,6 +104,15 @@ interface AppContextType {
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   joinFamilyWithCode: (code: string) => Promise<{ success: boolean; message: string }>;
+  createFamily: (name: string, avatarIcon?: string, description?: string) => Promise<{ success: boolean; message: string; family?: Family }>;
+  updateFamilyDetails: (familyId: string, updates: Partial<Family>) => Promise<{ success: boolean; message: string }>;
+  linkUserToFamily: (familyId: string, userId: string, familyRole?: FamilyRole) => Promise<{ success: boolean; message: string }>;
+  removeUserFromFamily: (familyId: string, userId: string) => Promise<{ success: boolean; message: string }>;
+  sendFamilyInvitation: (recipientEmailOrPhone: string, targetFamilyRole: FamilyRole) => Promise<{ success: boolean; message: string }>;
+  respondToInvitation: (invitationId: string, accept: boolean) => Promise<{ success: boolean; message: string }>;
+  adminDeleteFamily: (familyId: string) => Promise<{ success: boolean; message: string }>;
+  switchActiveFamily: (familyId: string) => void;
+  getFamilyMembers: (familyId: string) => { students: User[]; parents: User[] };
   triggerCelebration: () => void;
   adminAddChallengeTask: (task: Challenge30DayTask) => void;
   adminAddDeepTalkTopic: (topic: DeepTalkTopic) => void;
@@ -121,6 +134,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Base state
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [currentUserId, setCurrentUserId] = useState<string>('user-student-1');
+  const [families, setFamilies] = useState<Family[]>(INITIAL_FAMILIES);
+  const [activeFamilyId, setActiveFamilyId] = useState<string>('family-1');
+  const [familyInvitations, setFamilyInvitations] = useState<FamilyInvitation[]>([]);
   const [family, setFamily] = useState<Family>(INITIAL_FAMILIES[0]);
   const [journalEntries, setJournalEntries] = useState<EmotionJournalEntry[]>(INITIAL_JOURNAL_ENTRIES);
   const [consultations, setConsultations] = useState<ConsultationSession[]>(INITIAL_CONSULTATIONS);
@@ -144,6 +160,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (json.success && json.data) {
           const db = json.data;
           if (db.users && db.users.length > 0) setUsers(db.users);
+          if (db.families && db.families.length > 0) {
+            setFamilies(db.families);
+          }
+          if (db.familyInvitations) {
+            setFamilyInvitations(db.familyInvitations);
+          }
           if (db.family) setFamily(db.family);
           if (db.journalEntries) setJournalEntries(db.journalEntries);
           if (db.consultations) setConsultations(db.consultations);
@@ -167,6 +189,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     reloadFromSqlite();
   }, [reloadFromSqlite]);
+
+  // Keep active family synchronized with current active user (student/parent)
+  useEffect(() => {
+    if (currentUser && (currentUser.role === 'student' || currentUser.role === 'parent')) {
+      const userFam = families.find(
+        (f) =>
+          (currentUser.familyId && f.id === currentUser.familyId) ||
+          f.studentIds.includes(currentUser.id) ||
+          f.parentIds.includes(currentUser.id)
+      );
+      if (userFam && userFam.id !== family.id) {
+        setFamily(userFam);
+        setActiveFamilyId(userFam.id);
+      }
+    }
+  }, [currentUser.id, currentUser.familyId, currentUser.role, families, family.id]);
 
   // Auth modal & session state
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
@@ -217,6 +255,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.setItem('codegenz_auth_logged_in', 'true');
       } catch {}
 
+      if (loggedUser.role === 'student' || loggedUser.role === 'parent') {
+        const userFam = families.find(
+          (f) =>
+            (loggedUser.familyId && f.id === loggedUser.familyId) ||
+            f.studentIds.includes(loggedUser.id) ||
+            f.parentIds.includes(loggedUser.id)
+        );
+        if (userFam) {
+          setFamily(userFam);
+          setActiveFamilyId(userFam.id);
+        }
+      }
+
       setAuthModalOpen(false);
       triggerCelebration();
       return { success: true };
@@ -258,7 +309,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = () => {
     try {
       localStorage.setItem('codegenz_auth_logged_in', 'false');
+      localStorage.removeItem('codegenz_current_user_id');
     } catch {}
+    addAuditLog('USER_LOGOUT', `user:${currentUser.id}`, `Người dùng ${currentUser.name} (${currentUser.role}) đăng xuất khỏi hệ thống.`);
     setIsAuthenticated(false);
     openAuthModal('login');
   };
@@ -399,6 +452,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = users.find((u) => u.id === userId);
     if (target) {
       setCurrentUserId(userId);
+      setIsAuthenticated(true);
+      try {
+        localStorage.setItem('codegenz_current_user_id', userId);
+        localStorage.setItem('codegenz_auth_logged_in', 'true');
+      } catch {}
+
+      if (target.role === 'student' || target.role === 'parent') {
+        const userFam = families.find(
+          (f) =>
+            (target.familyId && f.id === target.familyId) ||
+            f.studentIds.includes(target.id) ||
+            f.parentIds.includes(target.id)
+        );
+        if (userFam) {
+          setFamily(userFam);
+          setActiveFamilyId(userFam.id);
+        }
+      }
+
       addAuditLog('SWITCH_USER_ROLE', `user:${userId}`, `Chuyển sang người dùng ${target.name} (${target.role})`);
       setActiveTab('dashboard');
     }
@@ -915,7 +987,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const markAllNotificationsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setNotifications((prev) =>
+      prev.map((n) => (n.userId === currentUser.id ? { ...n, isRead: true } : n))
+    );
     fetch('/api/db/notifications/read-all', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -923,7 +997,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(() => {});
   };
 
-  // 11. Family Join with Code
+  // Sync active family when currentUser changes or activeFamilyId changes
+  useEffect(() => {
+    if (currentUser?.familyId) {
+      const match = families.find((f) => f.id === currentUser.familyId);
+      if (match) {
+        setFamily(match);
+        return;
+      }
+    }
+    const currentActive = families.find((f) => f.id === activeFamilyId) || families[0] || INITIAL_FAMILIES[0];
+    setFamily(currentActive);
+  }, [currentUser, families, activeFamilyId]);
+
+  // Family Helper Functions
+  const getFamilyMembers = (targetFamilyId: string) => {
+    const fam = families.find((f) => f.id === targetFamilyId) || family;
+    const studentIds = fam ? fam.studentIds : [];
+    const parentIds = fam ? fam.parentIds : [];
+    const students = users.filter((u) => studentIds.includes(u.id) || (u.familyId === fam?.id && u.role === 'student'));
+    const parents = users.filter((u) => parentIds.includes(u.id) || (u.familyId === fam?.id && u.role === 'parent'));
+    return { students, parents };
+  };
+
+  const switchActiveFamily = (targetFamilyId: string) => {
+    const match = families.find((f) => f.id === targetFamilyId);
+    if (match) {
+      setActiveFamilyId(targetFamilyId);
+      setFamily(match);
+    }
+  };
+
   const joinFamilyWithCode = async (code: string): Promise<{ success: boolean; message: string }> => {
     try {
       const res = await fetch('/api/db/family/join', {
@@ -938,29 +1042,314 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const data = await res.json();
       if (data.success && data.family) {
         setFamily(data.family);
+        setFamilies((prev) => {
+          const exists = prev.some((f) => f.id === data.family.id);
+          return exists ? prev.map((f) => (f.id === data.family.id ? data.family : f)) : [...prev, data.family];
+        });
         setUsers((prev) =>
           prev.map((u) => (u.id === currentUser.id ? { ...u, familyId: data.family.id } : u))
         );
         addAuditLog('JOIN_FAMILY_CODE', data.family.id, `Người dùng ${currentUser.name} kết nối gia đình qua mã ${code}`);
-        return { success: true, message: data.message };
+        triggerCelebration();
+        return { success: true, message: data.message || `Đã tham gia nhóm gia đình "${data.family.name}"!` };
       }
-      return { success: false, message: data.message || 'Mã gia đình không đúng.' };
+      return { success: false, message: data.message || 'Mã gia đình không đúng hoặc đã hết hạn.' };
     } catch {
-      // Local fallback
       const cleanCode = code.trim().toUpperCase();
-      if (cleanCode === family.familyCode || cleanCode === 'CODE-8899') {
+      const match = families.find((f) => f.familyCode.toUpperCase() === cleanCode) || (cleanCode === family.familyCode ? family : null);
+      if (match) {
         setFamily((prev) => {
-          const studentIds = currentUser.role === 'student' && !prev.studentIds.includes(currentUser.id)
-            ? [...prev.studentIds, currentUser.id]
-            : prev.studentIds;
-          const parentIds = currentUser.role === 'parent' && !prev.parentIds.includes(currentUser.id)
-            ? [...prev.parentIds, currentUser.id]
-            : prev.parentIds;
-          return { ...prev, studentIds, parentIds };
+          const studentIds = currentUser.role === 'student' && !match.studentIds.includes(currentUser.id)
+            ? [...match.studentIds, currentUser.id]
+            : match.studentIds;
+          const parentIds = currentUser.role === 'parent' && !match.parentIds.includes(currentUser.id)
+            ? [...match.parentIds, currentUser.id]
+            : match.parentIds;
+          return { ...match, studentIds, parentIds };
         });
-        return { success: true, message: `Kết nối thành công vào gia đình "${family.name}"!` };
+        setUsers((prev) =>
+          prev.map((u) => (u.id === currentUser.id ? { ...u, familyId: match.id } : u))
+        );
+        triggerCelebration();
+        return { success: true, message: `Kết nối thành công vào gia đình "${match.name}"!` };
       }
       return { success: false, message: 'Mã gia đình không tồn tại hoặc đã hết hạn.' };
+    }
+  };
+
+  const createFamily = async (
+    name: string,
+    avatarIcon?: string,
+    description?: string
+  ): Promise<{ success: boolean; message: string; family?: Family }> => {
+    try {
+      const res = await fetch('/api/db/families/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          avatarIcon,
+          description,
+          creatorId: currentUser.id,
+          creatorRole: currentUser.role,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const newFam: Family = data.data;
+        setFamilies((prev) => [...prev, newFam]);
+        setFamily(newFam);
+        setActiveFamilyId(newFam.id);
+        setUsers((prev) =>
+          prev.map((u) => (u.id === currentUser.id ? { ...u, familyId: newFam.id } : u))
+        );
+        triggerCelebration();
+        return { success: true, message: data.message || `Đã tạo gia đình "${name}"!`, family: newFam };
+      }
+      return { success: false, message: data.error || 'Không thể tạo nhóm gia đình.' };
+    } catch {
+      const newFam: Family = {
+        id: `family-${Date.now()}`,
+        name,
+        familyCode: `CODE-${Math.floor(1000 + Math.random() * 9000)}`,
+        studentIds: currentUser.role === 'student' ? [currentUser.id] : [],
+        parentIds: currentUser.role === 'parent' ? [currentUser.id] : [],
+        happinessPoints: 100,
+        streakDays: 1,
+        createdAt: new Date().toISOString(),
+        avatarIcon: avatarIcon || '🏡',
+        description,
+      };
+      setFamilies((prev) => [...prev, newFam]);
+      setFamily(newFam);
+      setActiveFamilyId(newFam.id);
+      setUsers((prev) =>
+        prev.map((u) => (u.id === currentUser.id ? { ...u, familyId: newFam.id } : u))
+      );
+      triggerCelebration();
+      return { success: true, message: `Đã tạo gia đình "${name}" thành công!`, family: newFam };
+    }
+  };
+
+  const updateFamilyDetails = async (
+    targetFamilyId: string,
+    updates: Partial<Family>
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await fetch(`/api/db/families/${targetFamilyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFamilies((prev) =>
+          prev.map((f) => (f.id === targetFamilyId ? { ...f, ...updates } : f))
+        );
+        if (family.id === targetFamilyId) {
+          setFamily((prev) => ({ ...prev, ...updates }));
+        }
+        return { success: true, message: data.message || 'Đã cập nhật thông tin gia đình!' };
+      }
+      return { success: false, message: data.error || 'Cập nhật thất bại' };
+    } catch {
+      setFamilies((prev) =>
+        prev.map((f) => (f.id === targetFamilyId ? { ...f, ...updates } : f))
+      );
+      if (family.id === targetFamilyId) {
+        setFamily((prev) => ({ ...prev, ...updates }));
+      }
+      return { success: true, message: 'Đã cập nhật thông tin nhóm gia đình!' };
+    }
+  };
+
+  const linkUserToFamily = async (
+    targetFamilyId: string,
+    userId: string,
+    familyRole?: FamilyRole
+  ): Promise<{ success: boolean; message: string }> => {
+    const targetUser = users.find((u) => u.id === userId);
+    if (!targetUser) return { success: false, message: 'Không tìm thấy người dùng.' };
+
+    try {
+      const res = await fetch(`/api/db/families/${targetFamilyId}/add-member`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, role: targetUser.role, familyRole }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFamilies((prev) =>
+          prev.map((f) => {
+            if (f.id === targetFamilyId) {
+              const studentIds = targetUser.role === 'student' && !f.studentIds.includes(userId) ? [...f.studentIds, userId] : f.studentIds;
+              const parentIds = targetUser.role === 'parent' && !f.parentIds.includes(userId) ? [...f.parentIds, userId] : f.parentIds;
+              return { ...f, studentIds, parentIds };
+            }
+            return f;
+          })
+        );
+        setUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, familyId: targetFamilyId, familyRole: familyRole || u.familyRole } : u))
+        );
+        return { success: true, message: data.message || 'Đã kết nối thành viên vào nhóm gia đình thành công!' };
+      }
+      return { success: false, message: data.message || 'Không thể liên kết thành viên' };
+    } catch {
+      setFamilies((prev) =>
+        prev.map((f) => {
+          if (f.id === targetFamilyId) {
+            const studentIds = targetUser.role === 'student' && !f.studentIds.includes(userId) ? [...f.studentIds, userId] : f.studentIds;
+            const parentIds = targetUser.role === 'parent' && !f.parentIds.includes(userId) ? [...f.parentIds, userId] : f.parentIds;
+            return { ...f, studentIds, parentIds };
+          }
+          return f;
+        })
+      );
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, familyId: targetFamilyId, familyRole: familyRole || u.familyRole } : u))
+      );
+      return { success: true, message: `Đã kết nối ${targetUser.name} vào gia đình thành công!` };
+    }
+  };
+
+  const removeUserFromFamily = async (
+    targetFamilyId: string,
+    userId: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await fetch(`/api/db/families/${targetFamilyId}/remove-member`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFamilies((prev) =>
+          prev.map((f) => {
+            if (f.id === targetFamilyId) {
+              return {
+                ...f,
+                studentIds: f.studentIds.filter((id) => id !== userId),
+                parentIds: f.parentIds.filter((id) => id !== userId),
+              };
+            }
+            return f;
+          })
+        );
+        setUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, familyId: undefined } : u))
+        );
+        return { success: true, message: 'Đã hủy kết nối thành viên khỏi nhóm gia đình.' };
+      }
+      return { success: false, message: data.message || 'Không thể hủy kết nối' };
+    } catch {
+      setFamilies((prev) =>
+        prev.map((f) => {
+          if (f.id === targetFamilyId) {
+            return {
+              ...f,
+              studentIds: f.studentIds.filter((id) => id !== userId),
+              parentIds: f.parentIds.filter((id) => id !== userId),
+            };
+          }
+          return f;
+        })
+      );
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, familyId: undefined } : u))
+      );
+      return { success: true, message: 'Đã hủy kết nối thành viên khỏi nhóm gia đình.' };
+    }
+  };
+
+  const sendFamilyInvitation = async (
+    recipientEmailOrPhone: string,
+    targetFamilyRole: FamilyRole
+  ): Promise<{ success: boolean; message: string }> => {
+    const inv: FamilyInvitation = {
+      id: `inv-${Date.now()}`,
+      familyId: family.id,
+      familyName: family.name,
+      familyCode: family.familyCode,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderRole: currentUser.role as 'student' | 'parent',
+      recipientEmailOrPhone,
+      targetFamilyRole,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const res = await fetch('/api/db/family-invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inv),
+      });
+      const data = await res.json();
+      setFamilyInvitations((prev) => [inv, ...prev]);
+      return { success: true, message: data.message || `Đã gửi lời mời tới ${recipientEmailOrPhone}!` };
+    } catch {
+      setFamilyInvitations((prev) => [inv, ...prev]);
+      return { success: true, message: `Đã tạo và gửi lời mời kết nối tới ${recipientEmailOrPhone}!` };
+    }
+  };
+
+  const respondToInvitation = async (
+    invitationId: string,
+    accept: boolean
+  ): Promise<{ success: boolean; message: string }> => {
+    const inv = familyInvitations.find((i) => i.id === invitationId);
+    const status = accept ? 'accepted' : 'declined';
+    try {
+      const res = await fetch(`/api/db/family-invitations/${invitationId}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status,
+          userId: currentUser.id,
+          userRole: currentUser.role,
+          familyId: inv?.familyId,
+        }),
+      });
+      const data = await res.json();
+      setFamilyInvitations((prev) =>
+        prev.map((i) => (i.id === invitationId ? { ...i, status } : i))
+      );
+      if (accept && inv) {
+        linkUserToFamily(inv.familyId, currentUser.id, inv.targetFamilyRole);
+      }
+      return { success: true, message: data.message || 'Đã xử lý lời mời.' };
+    } catch {
+      setFamilyInvitations((prev) =>
+        prev.map((i) => (i.id === invitationId ? { ...i, status } : i))
+      );
+      if (accept && inv) {
+        linkUserToFamily(inv.familyId, currentUser.id, inv.targetFamilyRole);
+      }
+      return { success: true, message: accept ? 'Đã tham gia nhóm gia đình thành công!' : 'Đã từ chối lời mời.' };
+    }
+  };
+
+  const adminDeleteFamily = async (targetFamilyId: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await fetch(`/api/db/families/${targetFamilyId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setFamilies((prev) => prev.filter((f) => f.id !== targetFamilyId));
+        setUsers((prev) =>
+          prev.map((u) => (u.familyId === targetFamilyId ? { ...u, familyId: undefined } : u))
+        );
+        return { success: true, message: 'Đã xóa nhóm gia đình thành công.' };
+      }
+      return { success: false, message: data.error || 'Lỗi khi xóa nhóm gia đình.' };
+    } catch {
+      setFamilies((prev) => prev.filter((f) => f.id !== targetFamilyId));
+      setUsers((prev) =>
+        prev.map((u) => (u.familyId === targetFamilyId ? { ...u, familyId: undefined } : u))
+      );
+      return { success: true, message: 'Đã xóa nhóm gia đình.' };
     }
   };
 
@@ -976,6 +1365,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // RBAC and Privacy filter: Strictly respect student's privacy choice!
   const getFilteredJournalsForUser = (user: User): EmotionJournalEntry[] => {
+    if (!isAuthenticated) {
+      return [];
+    }
     if (user.role === 'student') {
       return journalEntries.filter((j) => j.studentId === user.id);
     }
@@ -1156,6 +1548,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         users,
         family,
+        families,
+        familyInvitations,
         journalEntries,
         consultations,
         deepTalkTopics,
@@ -1199,6 +1593,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markNotificationRead,
         markAllNotificationsRead,
         joinFamilyWithCode,
+        createFamily,
+        updateFamilyDetails,
+        linkUserToFamily,
+        removeUserFromFamily,
+        sendFamilyInvitation,
+        respondToInvitation,
+        adminDeleteFamily,
+        switchActiveFamily,
+        getFamilyMembers,
         triggerCelebration,
         adminAddChallengeTask,
         adminAddDeepTalkTopic,

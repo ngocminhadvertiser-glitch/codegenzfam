@@ -72,6 +72,21 @@ export interface Family {
   streakDays: number;
   createdAt: string;
   avatarIcon?: string;
+  description?: string;
+}
+
+export interface FamilyInvitation {
+  id: string;
+  familyId: string;
+  familyName: string;
+  familyCode: string;
+  senderId: string;
+  senderName: string;
+  senderRole: UserRole;
+  recipientEmailOrPhone: string;
+  targetFamilyRole: FamilyRole;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: string;
 }
 
 export type EmotionType =

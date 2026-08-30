@@ -31,6 +31,8 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
     updateJournalPrivacy,
     deleteJournalEntry,
     addParentReaction,
+    isAuthenticated,
+    openAuthModal,
   } = useApp();
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'shared_parent' | 'shared_psych' | 'private'>('all');
@@ -100,6 +102,136 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
     addParentReaction(journalId, type, text);
     setCommentInputs((prev) => ({ ...prev, [journalId]: '' }));
   };
+
+  // If user is not authenticated, show a privacy-first educational and onboarding experience
+  if (!isAuthenticated) {
+    return (
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-purple-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-bold mb-3 border border-purple-100">
+              <Sparkles className="w-3.5 h-3.5 text-pink-500" />
+              <span>Bảo mật dữ liệu cá nhân theo tiêu chuẩn C-O-D-E</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Nhật Ký Cảm Xúc Cá Nhân 📖
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-2 font-normal leading-relaxed">
+              Không gian an toàn để bạn trút bỏ áp lực điểm số, thi cử và cảm xúc tuổi mới lớn. Bạn nắm toàn quyền phân quyền từng dòng nhật ký được lưu trữ.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <button
+              onClick={() => openAuthModal('login')}
+              className="px-6 py-3.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all flex items-center gap-2"
+            >
+              <Lock className="w-4 h-4" />
+              Đăng nhập để xem nhật ký
+            </button>
+            <button
+              onClick={onOpenNewJournal}
+              className="px-5 py-3.5 bg-slate-100 hover:bg-purple-50 hover:text-purple-700 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-2xl border border-slate-200 transition-all flex items-center gap-2"
+            >
+              <span>+</span> Viết thử nhật ký
+            </button>
+          </div>
+        </div>
+
+        {/* 4-Tier Privacy Breakdown Cards */}
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
+
+          <div className="relative z-10 mb-6">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest bg-white/10 px-3 py-1 rounded-full text-pink-300 border border-white/15">
+              Cơ chế phân quyền độc quyền
+            </span>
+            <h3 className="text-xl sm:text-2xl font-extrabold mt-3 text-white">
+              Bạn kiểm soát 100% người được xem nhật ký của mình
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300 mt-1.5 max-w-2xl font-normal leading-relaxed">
+              Mỗi mục nhật ký đều có tùy chọn bảo mật độc lập, giúp học sinh hoàn toàn yên tâm chia sẻ mà không sợ bị phán xét hay vi phạm riêng tư:
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
+            {/* Tier 1 */}
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/10 hover:border-purple-400/50 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300 mb-3 border border-white/10">
+                <Lock className="w-5 h-5 text-amber-300" />
+              </div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-white">1. Chỉ Mình Tôi</h4>
+                <span className="text-[9px] bg-white/20 text-slate-200 px-2 py-0.5 rounded-full font-bold uppercase">Bí mật</span>
+              </div>
+              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                Chỉ duy nhất bạn xem được. Cha mẹ và chuyên gia đều không có quyền truy cập.
+              </p>
+            </div>
+
+            {/* Tier 2 */}
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/10 hover:border-pink-400/50 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-pink-900/50 flex items-center justify-center text-pink-300 mb-3 border border-white/10">
+                <Users className="w-5 h-5 text-pink-300" />
+              </div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-white">2. Chia sẻ Cha Mẹ</h4>
+                <span className="text-[9px] bg-pink-500/30 text-pink-200 px-2 py-0.5 rounded-full font-bold uppercase">Gia đình</span>
+              </div>
+              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                Cầu nối giúp bố mẹ thấu hiểu tâm sự, nhận phản hồi ấm áp và những cái ôm vỗ về từ xa.
+              </p>
+            </div>
+
+            {/* Tier 3 */}
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/10 hover:border-indigo-400/50 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-indigo-900/50 flex items-center justify-center text-indigo-300 mb-3 border border-white/10">
+                <Stethoscope className="w-5 h-5 text-indigo-300" />
+              </div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-white">3. Gửi Chuyên Gia</h4>
+                <span className="text-[9px] bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-full font-bold uppercase">Chuyên môn</span>
+              </div>
+              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                Chỉ chuyên viên tâm lý học đường phân công mới được xem để đưa ra hướng dẫn khoa học.
+              </p>
+            </div>
+
+            {/* Tier 4 */}
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/10 hover:border-purple-400/50 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-purple-900/50 flex items-center justify-center text-purple-300 mb-3 border border-white/10">
+                <Globe2 className="w-5 h-5 text-purple-300" />
+              </div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-white">4. Chia Sẻ Cả Hai</h4>
+                <span className="text-[9px] bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded-full font-bold uppercase">Toàn diện</span>
+              </div>
+              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                Kết nối trọn vẹn cả gia đình và chuyên gia cùng đồng hành và hỗ trợ bạn một cách tốt nhất.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                ✓
+              </div>
+              <p className="text-xs text-slate-300">
+                Tất cả dữ liệu được mã hóa và đồng bộ với cơ sở dữ liệu bảo mật trên hệ thống.
+              </p>
+            </div>
+            <button
+              onClick={() => openAuthModal('register')}
+              className="px-5 py-2.5 bg-white text-slate-900 hover:bg-slate-100 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all"
+            >
+              Đăng ký tài khoản học sinh
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

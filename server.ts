@@ -17,6 +17,16 @@ import {
   resetUserPassword,
   deleteUser,
   getAllFamilies,
+  getFamilyById,
+  findFamilyByCode,
+  createFamily,
+  updateFamily,
+  deleteFamily,
+  addMemberToFamily,
+  removeMemberFromFamily,
+  getAllFamilyInvitations,
+  createFamilyInvitation,
+  respondFamilyInvitation,
   getAllJournals,
   createJournalEntry,
   updateJournalPrivacy,
@@ -148,7 +158,41 @@ async function startServer() {
           : "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80");
 
       const newUserId = `user-${role}-${Date.now().toString(36)}`;
-      let targetFamilyId = "family-1";
+      let targetFamilyId: string | undefined = undefined;
+
+      if (role === "student") {
+        if (familyCode && familyCode.trim()) {
+          const matchedFam = findFamilyByCode(familyCode.trim());
+          if (matchedFam) {
+            targetFamilyId = matchedFam.id;
+          }
+        }
+        if (!targetFamilyId) {
+          // Create new distinct family for this student
+          const newFamId = `family-${Date.now()}`;
+          const newFamCode = `CODE-${Math.floor(1000 + Math.random() * 9000)}`;
+          createFamily({
+            id: newFamId,
+            name: `Tổ Ấm ${name.trim()}`,
+            familyCode: newFamCode,
+            studentIds: [newUserId],
+            parentIds: [],
+            happinessPoints: 100,
+            streakDays: 1,
+            createdAt: new Date().toISOString(),
+            avatarIcon: '🏡',
+            description: `Tổ ấm gia đình của ${name.trim()} – nơi lắng nghe và gắn kết yêu thương.`,
+          });
+          targetFamilyId = newFamId;
+        }
+      } else if (role === "parent") {
+        if (familyCode && familyCode.trim()) {
+          const matchedFam = findFamilyByCode(familyCode.trim());
+          if (matchedFam) {
+            targetFamilyId = matchedFam.id;
+          }
+        }
+      }
 
       const newUser = {
         id: newUserId,
@@ -172,8 +216,8 @@ async function startServer() {
 
       createUser(newUser);
 
-      // If user provided a family code, attempt to link
-      if (familyCode && familyCode.trim()) {
+      // If user provided a family code and targetFamily was matched, link member
+      if (familyCode && familyCode.trim() && targetFamilyId) {
         joinFamilyWithCode(newUserId, role, familyCode.trim());
       }
 
@@ -918,7 +962,125 @@ async function startServer() {
     }
   });
 
-  // 9. Family Code Connection
+  // 9. Family Operations & Management
+  app.get("/api/db/families", (_req, res) => {
+    try {
+      const families = getAllFamilies();
+      res.json({ success: true, data: families });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get("/api/db/families/:id", (req, res) => {
+    try {
+      const family = getFamilyById(req.params.id);
+      if (!family) return res.status(404).json({ success: false, error: "Không tìm thấy nhóm gia đình." });
+      res.json({ success: true, data: family });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/db/families/create", (req, res) => {
+    try {
+      const { name, familyCode, creatorId, creatorRole, avatarIcon, description } = req.body;
+      if (!name) return res.status(400).json({ success: false, error: "Tên nhóm gia đình là bắt buộc." });
+
+      const code = familyCode || `CODE-${Math.floor(1000 + Math.random() * 9000)}`;
+      const existing = findFamilyByCode(code);
+      if (existing) {
+        return res.status(400).json({ success: false, error: "Mã gia đình này đã tồn tại, vui lòng chọn mã khác." });
+      }
+
+      const newFamily = {
+        id: `family-${Date.now().toString(36)}`,
+        name,
+        familyCode: code.toUpperCase(),
+        studentIds: creatorRole === "student" && creatorId ? [creatorId] : [],
+        parentIds: creatorRole === "parent" && creatorId ? [creatorId] : [],
+        happinessPoints: 100,
+        streakDays: 1,
+        createdAt: new Date().toISOString(),
+        avatarIcon: avatarIcon || "🏡",
+        description: description || `Tổ ấm ${name}`,
+      };
+
+      createFamily(newFamily);
+
+      if (creatorId) {
+        updateUser({
+          ...getUserById(creatorId)!,
+          familyId: newFamily.id,
+        });
+      }
+
+      addAuditLog({
+        id: `log-${Date.now()}`,
+        userId: creatorId || "system",
+        userName: "Người dùng",
+        userRole: (creatorRole as any) || "student",
+        action: "CREATE_FAMILY",
+        resource: "families",
+        details: `Tạo nhóm gia đình mới: "${name}" (Mã: ${newFamily.familyCode})`,
+        timestamp: new Date().toISOString(),
+        status: "SUCCESS",
+      });
+
+      res.json({ success: true, data: newFamily, message: `Đã tạo nhóm gia đình "${name}" thành công!` });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.put("/api/db/families/:id", (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const existing = getFamilyById(id);
+      if (!existing) return res.status(404).json({ success: false, error: "Không tìm thấy nhóm gia đình." });
+
+      const updated = { ...existing, ...updates };
+      updateFamily(updated);
+      res.json({ success: true, data: updated, message: "Đã cập nhật thông tin nhóm gia đình." });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.delete("/api/db/families/:id", (req, res) => {
+    try {
+      const { id } = req.params;
+      deleteFamily(id);
+      res.json({ success: true, message: "Đã xóa nhóm gia đình." });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/db/families/:id/add-member", (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userId, role, familyRole } = req.body;
+      const result = addMemberToFamily(id, userId, role, familyRole);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/db/families/:id/remove-member", (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userId } = req.body;
+      const result = removeMemberFromFamily(id, userId);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Family Code Join
   app.post("/api/db/family/join", (req, res) => {
     try {
       const { userId, userRole, code } = req.body;
@@ -939,6 +1101,58 @@ async function startServer() {
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // Family Invitations
+  app.get("/api/db/family-invitations", (_req, res) => {
+    try {
+      const invitations = getAllFamilyInvitations();
+      res.json({ success: true, data: invitations });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/db/family-invitations", (req, res) => {
+    try {
+      const inv = req.body;
+      createFamilyInvitation(inv);
+
+      // Check if recipient is an existing user to push notification
+      const user = findUserByEmailOrName(inv.recipientEmailOrPhone);
+      if (user) {
+        addNotification({
+          id: `notif-${Date.now()}`,
+          userId: user.id,
+          title: "Lời mời kết nối gia đình mới",
+          message: `${inv.senderName} (${inv.senderRole === 'student' ? 'Con' : 'Phụ huynh'}) đã gửi lời mời bạn tham gia nhóm gia đình "${inv.familyName}". Mã: ${inv.familyCode}`,
+          type: "system",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          actionTab: "family",
+        });
+      }
+
+      res.json({ success: true, message: `Đã gửi lời mời kết nối tới ${inv.recipientEmailOrPhone} thành công!` });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/db/family-invitations/:id/respond", (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, userId, userRole, familyId } = req.body;
+      const result = respondFamilyInvitation(id, status);
+
+      if (status === "accepted" && userId && familyId) {
+        addMemberToFamily(familyId, userId, userRole);
+      }
+
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 

@@ -18,16 +18,20 @@ import {
   Send,
 } from 'lucide-react';
 
+import { FamilyGroupWidget } from '../family/FamilyGroupWidget';
+
 interface ParentDashboardProps {
   onOpenDeepTalk: () => void;
   onOpenChallenge: () => void;
   onOpenAIChat: () => void;
+  onOpenFamilyManagement?: (tab?: 'overview' | 'invite' | 'invitations' | 'all_families') => void;
 }
 
 export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   onOpenDeepTalk,
   onOpenChallenge,
   onOpenAIChat,
+  onOpenFamilyManagement = () => {},
 }) => {
   const {
     currentUser,
@@ -159,6 +163,9 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Connected Family Group & Members Widget */}
+      <FamilyGroupWidget onOpenFamilyModal={onOpenFamilyManagement} />
 
       {/* Main Grid: 2 Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
