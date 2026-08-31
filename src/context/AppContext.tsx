@@ -132,23 +132,185 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [sqliteConnected, setSqliteConnected] = useState<boolean>(false);
   const sqliteFile = 'data-storage/codegenz.sqlite';
 
-  // Base state
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
-  const [currentUserId, setCurrentUserId] = useState<string>('user-student-1');
-  const [families, setFamilies] = useState<Family[]>(INITIAL_FAMILIES);
+  // Base state with localStorage hydration
+  const [users, setUsers] = useState<User[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_users');
+      return saved ? JSON.parse(saved) : INITIAL_USERS;
+    } catch {
+      return INITIAL_USERS;
+    }
+  });
+  const [currentUserId, setCurrentUserId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('codegenz_current_user_id') || 'user-student-1';
+    } catch {
+      return 'user-student-1';
+    }
+  });
+  const [families, setFamilies] = useState<Family[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_families');
+      return saved ? JSON.parse(saved) : INITIAL_FAMILIES;
+    } catch {
+      return INITIAL_FAMILIES;
+    }
+  });
   const [activeFamilyId, setActiveFamilyId] = useState<string>('family-1');
-  const [familyInvitations, setFamilyInvitations] = useState<FamilyInvitation[]>([]);
-  const [family, setFamily] = useState<Family>(INITIAL_FAMILIES[0]);
-  const [journalEntries, setJournalEntries] = useState<EmotionJournalEntry[]>(INITIAL_JOURNAL_ENTRIES);
-  const [consultations, setConsultations] = useState<ConsultationSession[]>(INITIAL_CONSULTATIONS);
-  const [deepTalkTopics, setDeepTalkTopics] = useState<DeepTalkTopic[]>(DEEP_TALK_TOPICS);
-  const [deepTalkSessions, setDeepTalkSessions] = useState<DeepTalkSession[]>([]);
-  const [challengeTasks, setChallengeTasks] = useState<Challenge30DayTask[]>(INITIAL_CHALLENGE_TASKS);
-  const [challengeProgress, setChallengeProgress] = useState<ChallengeDayProgress[]>(INITIAL_CHALLENGE_PROGRESS);
-  const [happinessHistory, setHappinessHistory] = useState<HappinessPointRecord[]>(INITIAL_HAPPINESS_HISTORY);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
-  const [auditLogs, setAuditLogs] = useState<SecurityAuditLog[]>(INITIAL_AUDIT_LOGS);
+  const [familyInvitations, setFamilyInvitations] = useState<FamilyInvitation[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_family_invitations');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [family, setFamily] = useState<Family>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_families');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.length > 0) return parsed[0];
+      }
+      return INITIAL_FAMILIES[0];
+    } catch {
+      return INITIAL_FAMILIES[0];
+    }
+  });
+  const [journalEntries, setJournalEntries] = useState<EmotionJournalEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_journals');
+      return saved ? JSON.parse(saved) : INITIAL_JOURNAL_ENTRIES;
+    } catch {
+      return INITIAL_JOURNAL_ENTRIES;
+    }
+  });
+  const [consultations, setConsultations] = useState<ConsultationSession[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_consultations');
+      return saved ? JSON.parse(saved) : INITIAL_CONSULTATIONS;
+    } catch {
+      return INITIAL_CONSULTATIONS;
+    }
+  });
+  const [deepTalkTopics, setDeepTalkTopics] = useState<DeepTalkTopic[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_deeptalk_topics');
+      return saved ? JSON.parse(saved) : DEEP_TALK_TOPICS;
+    } catch {
+      return DEEP_TALK_TOPICS;
+    }
+  });
+  const [deepTalkSessions, setDeepTalkSessions] = useState<DeepTalkSession[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_deeptalk_sessions');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [challengeTasks, setChallengeTasks] = useState<Challenge30DayTask[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_challenge_tasks');
+      return saved ? JSON.parse(saved) : INITIAL_CHALLENGE_TASKS;
+    } catch {
+      return INITIAL_CHALLENGE_TASKS;
+    }
+  });
+  const [challengeProgress, setChallengeProgress] = useState<ChallengeDayProgress[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_challenge_progress');
+      return saved ? JSON.parse(saved) : INITIAL_CHALLENGE_PROGRESS;
+    } catch {
+      return INITIAL_CHALLENGE_PROGRESS;
+    }
+  });
+  const [happinessHistory, setHappinessHistory] = useState<HappinessPointRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_happiness_history');
+      return saved ? JSON.parse(saved) : INITIAL_HAPPINESS_HISTORY;
+    } catch {
+      return INITIAL_HAPPINESS_HISTORY;
+    }
+  });
+  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_notifications');
+      return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+    } catch {
+      return INITIAL_NOTIFICATIONS;
+    }
+  });
+  const [auditLogs, setAuditLogs] = useState<SecurityAuditLog[]>(() => {
+    try {
+      const saved = localStorage.getItem('codegenz_custom_audit_logs');
+      return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
+    } catch {
+      return INITIAL_AUDIT_LOGS;
+    }
+  });
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+
+  // Sync state changes to localStorage for offline / static web hosting
+  useEffect(() => {
+    try {
+      localStorage.setItem('codegenz_custom_users', JSON.stringify(users));
+    } catch {}
+  }, [users]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('codegenz_custom_families', JSON.stringify(families));
+    } catch {}
+  }, [families]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('codegenz_custom_family_invitations', JSON.stringify(familyInvitations));
+    } catch {}
+  }, [familyInvitations]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('codegenz_custom_journals', JSON.stringify(journalEntries));
+    } catch {}
+  }, [journalEntries]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('codegenz_custom_consultations', JSON.stringify(consultations));
+    } catch {}
+  }, [consultations]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('codegenz_custom_deeptalk_sessions', JSON.stringify(deepTalkSessions));
+    } catch {}
+  }, [deepTalkSessions]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('codegenz_custom_challenge_progress', JSON.stringify(challengeProgress));
+    } catch {}
+  }, [challengeProgress]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('codegenz_custom_happiness_history', JSON.stringify(happinessHistory));
+    } catch {}
+  }, [happinessHistory]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('codegenz_custom_notifications', JSON.stringify(notifications));
+    } catch {}
+  }, [notifications]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('codegenz_custom_audit_logs', JSON.stringify(auditLogs));
+    } catch {}
+  }, [auditLogs]);
 
   const currentUser = users.find((u) => u.id === currentUserId) || users[0];
 
@@ -156,7 +318,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const reloadFromSqlite = useCallback(async () => {
     try {
       const res = await fetch('/api/db/bootstrap');
-      if (res.ok) {
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+      if (res.ok && isJson) {
         const json = await res.json();
         if (json.success && json.data) {
           const db = json.data;
@@ -180,6 +343,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setSqliteConnected(true);
           console.log('[App] Successfully loaded all data from SQLite database!');
         }
+      } else {
+        setSqliteConnected(false);
       }
     } catch (err) {
       console.warn('[App] SQLite backend bootstrap error (fallback to local state):', err);
@@ -228,83 +393,310 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const login = async (payload: LoginPayload): Promise<{ success: boolean; error?: string }> => {
+    const { emailOrName, password } = payload;
+    if (!emailOrName) {
+      return { success: false, error: 'Vui lòng nhập Email hoặc Tên người dùng.' };
+    }
+
+    // 1. Try server API first
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.error || 'Đăng nhập không thành công.' };
-      }
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+      if (isJson) {
+        const data = await res.json();
+        if (res.ok && data.success && data.user) {
+          const loggedUser: User = data.user;
+          setUsers((prev) => {
+            const exists = prev.some((u) => u.id === loggedUser.id);
+            if (exists) {
+              return prev.map((u) => (u.id === loggedUser.id ? loggedUser : u));
+            }
+            return [loggedUser, ...prev];
+          });
 
-      const loggedUser: User = data.user;
-      // Update users list if not present
-      setUsers((prev) => {
-        const exists = prev.some((u) => u.id === loggedUser.id);
-        if (exists) {
-          return prev.map((u) => (u.id === loggedUser.id ? loggedUser : u));
+          setCurrentUserId(loggedUser.id);
+          setIsAuthenticated(true);
+          try {
+            localStorage.setItem('codegenz_current_user_id', loggedUser.id);
+            localStorage.setItem('codegenz_auth_logged_in', 'true');
+          } catch {}
+
+          if (loggedUser.role === 'student' || loggedUser.role === 'parent') {
+            const userFam = families.find(
+              (f) =>
+                (loggedUser.familyId && f.id === loggedUser.familyId) ||
+                f.studentIds.includes(loggedUser.id) ||
+                f.parentIds.includes(loggedUser.id)
+            );
+            if (userFam) {
+              setFamily(userFam);
+              setActiveFamilyId(userFam.id);
+            }
+          }
+
+          setAuthModalOpen(false);
+          triggerCelebration();
+          return { success: true };
+        } else if (res.status === 401 || res.status === 403) {
+          return { success: false, error: data.error || 'Đăng nhập không thành công.' };
         }
-        return [loggedUser, ...prev];
-      });
-
-      setCurrentUserId(loggedUser.id);
-      setIsAuthenticated(true);
-      try {
-        localStorage.setItem('codegenz_current_user_id', loggedUser.id);
-        localStorage.setItem('codegenz_auth_logged_in', 'true');
-      } catch {}
-
-      if (loggedUser.role === 'student' || loggedUser.role === 'parent') {
-        const userFam = families.find(
-          (f) =>
-            (loggedUser.familyId && f.id === loggedUser.familyId) ||
-            f.studentIds.includes(loggedUser.id) ||
-            f.parentIds.includes(loggedUser.id)
-        );
-        if (userFam) {
-          setFamily(userFam);
-          setActiveFamilyId(userFam.id);
-        }
       }
-
-      setAuthModalOpen(false);
-      triggerCelebration();
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Không thể kết nối đến máy chủ.' };
+    } catch (serverErr) {
+      console.warn('[App] Server login API unreachable, using client-side fallback:', serverErr);
     }
+
+    // 2. Client-side Fallback Login (for static web servers or offline mode)
+    const normalizedInput = emailOrName.trim().toLowerCase();
+    const matchedUser = users.find(
+      (u) =>
+        u.email.toLowerCase() === normalizedInput ||
+        u.name.toLowerCase() === normalizedInput ||
+        u.id.toLowerCase() === normalizedInput
+    );
+
+    if (!matchedUser) {
+      return {
+        success: false,
+        error: 'Không tìm thấy tài khoản với thông tin này. Vui lòng kiểm tra lại hoặc Đăng ký tài khoản mới.',
+      };
+    }
+
+    if (matchedUser.status === 'locked') {
+      return {
+        success: false,
+        error: 'Tài khoản của bạn hiện đang bị TẠM KHÓA bởi Quản trị viên. Vui lòng liên hệ ban quản trị để được hỗ trợ.',
+      };
+    }
+
+    if (password && matchedUser.password && matchedUser.password !== password) {
+      return {
+        success: false,
+        error: 'Mật khẩu không chính xác. Mật khẩu mặc định là: password123',
+      };
+    }
+
+    const updatedUser: User = {
+      ...matchedUser,
+      lastLoginAt: new Date().toISOString(),
+    };
+
+    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+    setCurrentUserId(updatedUser.id);
+    setIsAuthenticated(true);
+
+    try {
+      localStorage.setItem('codegenz_current_user_id', updatedUser.id);
+      localStorage.setItem('codegenz_auth_logged_in', 'true');
+    } catch {}
+
+    if (updatedUser.role === 'student' || updatedUser.role === 'parent') {
+      const userFam = families.find(
+        (f) =>
+          (updatedUser.familyId && f.id === updatedUser.familyId) ||
+          f.studentIds.includes(updatedUser.id) ||
+          f.parentIds.includes(updatedUser.id)
+      );
+      if (userFam) {
+        setFamily(userFam);
+        setActiveFamilyId(userFam.id);
+      }
+    }
+
+    addAuditLog('USER_LOGIN', 'auth', `Đăng nhập thành công vào hệ thống [${updatedUser.name}]`);
+    setAuthModalOpen(false);
+    triggerCelebration();
+    return { success: true };
   };
 
   const register = async (payload: RegisterPayload): Promise<{ success: boolean; error?: string }> => {
+    const {
+      name,
+      email,
+      password,
+      role,
+      familyRole,
+      familyCode,
+      grade,
+      title,
+      phone,
+      bio,
+      avatar,
+    } = payload;
+
+    if (!name || !email || !role) {
+      return { success: false, error: 'Vui lòng điền đầy đủ Họ tên, Email và Vai trò.' };
+    }
+
+    // 1. Try server API first
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.error || 'Đăng ký không thành công.' };
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+      if (isJson) {
+        const data = await res.json();
+        if (res.ok && data.success && data.user) {
+          const registeredUser: User = data.user;
+          setUsers((prev) => [registeredUser, ...prev.filter((u) => u.id !== registeredUser.id)]);
+          setCurrentUserId(registeredUser.id);
+          setIsAuthenticated(true);
+          try {
+            localStorage.setItem('codegenz_current_user_id', registeredUser.id);
+            localStorage.setItem('codegenz_auth_logged_in', 'true');
+          } catch {}
+
+          setAuthModalOpen(false);
+          triggerCelebration();
+          await reloadFromSqlite();
+          return { success: true };
+        } else if (res.status === 400 || res.status === 403) {
+          return { success: false, error: data.error || 'Đăng ký không thành công.' };
+        }
       }
-
-      const registeredUser: User = data.user;
-      setUsers((prev) => [registeredUser, ...prev]);
-      setCurrentUserId(registeredUser.id);
-      setIsAuthenticated(true);
-      try {
-        localStorage.setItem('codegenz_current_user_id', registeredUser.id);
-        localStorage.setItem('codegenz_auth_logged_in', 'true');
-      } catch {}
-
-      setAuthModalOpen(false);
-      triggerCelebration();
-      await reloadFromSqlite();
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Không thể kết nối đến máy chủ.' };
+    } catch (serverErr) {
+      console.warn('[App] Server register API unreachable, using client-side fallback:', serverErr);
     }
+
+    // 2. Client-side Fallback Registration (for static web servers or offline mode)
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = users.find((u) => u.email.toLowerCase() === normalizedEmail);
+    if (existingUser) {
+      return { success: false, error: 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác.' };
+    }
+
+    const defaultPermissions = {
+      canCreateJournal: true,
+      canViewFamilyJournals: true,
+      canRequestConsultation: role === 'student' || role === 'admin',
+      canManageConsultations: role === 'psychologist' || role === 'admin',
+      canManageChallenges: role === 'admin',
+      canManageDeeptalk: role === 'admin',
+      canManageUsers: role === 'admin',
+      canAuditLogs: role === 'admin',
+      canExportDatabase: role === 'admin',
+    };
+
+    const defaultAvatar =
+      avatar ||
+      (role === 'student'
+        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+        : role === 'parent'
+        ? (familyRole === 'father'
+          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
+          : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80')
+        : role === 'psychologist'
+        ? 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80'
+        : 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80');
+
+    const newUserId = `user-${role}-${Date.now().toString(36)}`;
+    let targetFamilyId: string | undefined = undefined;
+
+    if (role === 'student') {
+      if (familyCode && familyCode.trim()) {
+        const matched = families.find((f) => f.familyCode.toUpperCase() === familyCode.trim().toUpperCase());
+        if (matched) {
+          targetFamilyId = matched.id;
+          setFamilies((prev) =>
+            prev.map((f) =>
+              f.id === matched.id
+                ? { ...f, studentIds: Array.from(new Set([...f.studentIds, newUserId])) }
+                : f
+            )
+          );
+        }
+      }
+      if (!targetFamilyId) {
+        const newFamId = `family-${Date.now()}`;
+        const newFamCode = `CODE-${Math.floor(1000 + Math.random() * 9000)}`;
+        const newFam: Family = {
+          id: newFamId,
+          name: `Tổ Ấm ${name.trim()}`,
+          familyCode: newFamCode,
+          studentIds: [newUserId],
+          parentIds: [],
+          happinessPoints: 100,
+          streakDays: 1,
+          createdAt: new Date().toISOString(),
+          avatarIcon: '🏡',
+          description: `Tổ ấm gia đình của ${name.trim()} – nơi lắng nghe và gắn kết yêu thương.`,
+        };
+        setFamilies((prev) => [newFam, ...prev]);
+        setFamily(newFam);
+        setActiveFamilyId(newFam.id);
+        targetFamilyId = newFamId;
+      }
+    } else if (role === 'parent') {
+      if (familyCode && familyCode.trim()) {
+        const matched = families.find((f) => f.familyCode.toUpperCase() === familyCode.trim().toUpperCase());
+        if (matched) {
+          targetFamilyId = matched.id;
+          setFamilies((prev) =>
+            prev.map((f) =>
+              f.id === matched.id
+                ? { ...f, parentIds: Array.from(new Set([...f.parentIds, newUserId])) }
+                : f
+            )
+          );
+        }
+      }
+    }
+
+    const newUser: User = {
+      id: newUserId,
+      name: name.trim(),
+      email: normalizedEmail,
+      password: password || 'password123',
+      role,
+      familyRole: familyRole || (role === 'student' ? 'student' : role === 'parent' ? 'mother' : 'none'),
+      avatar: defaultAvatar,
+      familyId: targetFamilyId,
+      grade: grade || (role === 'student' ? 'Lớp 11 – THPT' : undefined),
+      title: title || (role === 'psychologist' ? 'Chuyên viên Tham vấn Tâm lý' : undefined),
+      bio: bio || `Thành viên mới tham gia nền tảng CODE GenZ Family.`,
+      phone: phone || undefined,
+      verified: role === 'psychologist' ? false : true,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+      permissions: defaultPermissions,
+    };
+
+    setUsers((prev) => [newUser, ...prev]);
+    setCurrentUserId(newUser.id);
+    setIsAuthenticated(true);
+
+    try {
+      localStorage.setItem('codegenz_current_user_id', newUser.id);
+      localStorage.setItem('codegenz_auth_logged_in', 'true');
+    } catch {}
+
+    // Welcome Notification
+    const welcomeNotif: NotificationItem = {
+      id: `notif-welcome-${Date.now()}`,
+      userId: newUserId,
+      title: `Chào mừng bạn đến với CODE GenZ Family! 🎉`,
+      message: `Tài khoản ${newUser.name} đã được khởi tạo thành công với vai trò ${
+        role === 'student' ? 'Học sinh THPT' : role === 'parent' ? 'Phụ huynh' : role === 'psychologist' ? 'Chuyên gia Tâm lý' : 'Quản trị viên'
+      }. Hãy bắt đầu khám phá nhật ký cảm xúc và các công cụ gắn kết gia đình.`,
+      type: 'system',
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      actionTab: 'dashboard',
+    };
+    setNotifications((prev) => [welcomeNotif, ...prev]);
+
+    // Audit log
+    addAuditLog('USER_REGISTER', 'users', `Đăng ký tài khoản mới thành công [Email: ${newUser.email}, Vai trò: ${role}]`);
+
+    setAuthModalOpen(false);
+    triggerCelebration();
+    return { success: true };
   };
 
   const logout = () => {
@@ -317,7 +709,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     openAuthModal('login');
   };
 
-  // Admin User CRUD Methods
+  // Admin User CRUD Methods with fallback
   const adminCreateUser = async (userData: Partial<User>): Promise<{ success: boolean; error?: string }> => {
     try {
       const res = await fetch('/api/admin/users/create', {
@@ -325,17 +717,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.error || 'Lỗi tạo người dùng' };
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+      if (isJson) {
+        const data = await res.json();
+        if (res.ok && data.success && data.data) {
+          const created: User = data.data;
+          setUsers((prev) => [created, ...prev.filter((u) => u.id !== created.id)]);
+          return { success: true };
+        } else if (res.status === 400) {
+          return { success: false, error: data.error || 'Lỗi tạo người dùng' };
+        }
       }
-
-      const created: User = data.data;
-      setUsers((prev) => [created, ...prev]);
-      return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Lỗi kết nối máy chủ' };
+      console.warn('[App] Admin create user server API unreachable, using local fallback:', err);
     }
+
+    const newId = userData.id || `user-${userData.role || 'student'}-${Date.now().toString(36)}`;
+    const created: User = {
+      id: newId,
+      name: userData.name || 'Người dùng mới',
+      email: userData.email || `user${Date.now()}@gmail.com`,
+      role: userData.role || 'student',
+      familyRole: userData.familyRole || 'student',
+      status: userData.status || 'active',
+      verified: userData.verified ?? true,
+      avatar: userData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+      permissions: userData.permissions || {},
+      ...userData,
+    };
+    setUsers((prev) => [created, ...prev]);
+    addAuditLog('ADMIN_CREATE_USER', 'users', `Admin tạo người dùng ${created.name} (${created.email})`);
+    return { success: true };
   };
 
   const adminUpdateUser = async (id: string, updates: Partial<User>): Promise<{ success: boolean; error?: string }> => {
@@ -345,17 +759,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.error || 'Lỗi cập nhật người dùng' };
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+      if (isJson) {
+        const data = await res.json();
+        if (res.ok && data.success && data.data) {
+          const updated: User = data.data;
+          setUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
+          return { success: true };
+        }
       }
-
-      const updated: User = data.data;
-      setUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
-      return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Lỗi kết nối máy chủ' };
+      console.warn('[App] Admin update user server API unreachable, using local fallback:', err);
     }
+
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updates } : u)));
+    addAuditLog('ADMIN_UPDATE_USER', `user:${id}`, `Admin cập nhật thông tin người dùng ${id}`);
+    return { success: true };
   };
 
   const adminToggleUserStatus = async (id: string, status?: 'active' | 'locked'): Promise<{ success: boolean; error?: string }> => {
@@ -365,36 +784,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.error || 'Lỗi đổi trạng thái tài khoản' };
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+      if (isJson) {
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setUsers((prev) =>
+            prev.map((u) => (u.id === id ? { ...u, status: data.newStatus } : u))
+          );
+          return { success: true };
+        }
       }
-
-      setUsers((prev) =>
-        prev.map((u) => (u.id === id ? { ...u, status: data.newStatus } : u))
-      );
-      return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Lỗi kết nối máy chủ' };
+      console.warn('[App] Admin toggle status server API unreachable, using local fallback:', err);
     }
+
+    setUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === id) {
+          const newSt = status || (u.status === 'active' ? 'locked' : 'active');
+          return { ...u, status: newSt };
+        }
+        return u;
+      })
+    );
+    addAuditLog('ADMIN_TOGGLE_USER_STATUS', `user:${id}`, `Admin đổi trạng thái người dùng ${id}`);
+    return { success: true };
   };
 
   const adminResetPassword = async (id: string, newPassword?: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+    const finalPass = newPassword || 'password123';
     try {
       const res = await fetch(`/api/admin/users/${id}/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newPassword }),
+        body: JSON.stringify({ newPassword: finalPass }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.error || 'Lỗi đặt lại mật khẩu' };
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+      if (isJson) {
+        const data = await res.json();
+        if (res.ok && data.success) {
+          return { success: true, message: data.message };
+        }
       }
-
-      return { success: true, message: data.message };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Lỗi kết nối máy chủ' };
+      console.warn('[App] Admin reset password server API unreachable, using local fallback:', err);
     }
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, password: finalPass } : u))
+    );
+    addAuditLog('ADMIN_RESET_PASSWORD', `user:${id}`, `Admin đặt lại mật khẩu cho người dùng ${id}`);
+    return { success: true, message: `Đã đặt lại mật khẩu thành công: ${finalPass}` };
   };
 
   const adminDeleteUser = async (id: string): Promise<{ success: boolean; error?: string }> => {
@@ -402,16 +842,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const res = await fetch(`/api/admin/users/${id}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.error || 'Lỗi xóa người dùng' };
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+      if (isJson) {
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setUsers((prev) => prev.filter((u) => u.id !== id));
+          return { success: true };
+        }
       }
-
-      setUsers((prev) => prev.filter((u) => u.id !== id));
-      return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Lỗi kết nối máy chủ' };
+      console.warn('[App] Admin delete user server API unreachable, using local fallback:', err);
     }
+
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+    addAuditLog('ADMIN_DELETE_USER', `user:${id}`, `Admin xóa người dùng ${id}`);
+    return { success: true };
   };
 
   const triggerCelebration = () => {
