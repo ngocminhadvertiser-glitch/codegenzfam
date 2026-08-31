@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ConsultationSession, ConsultationStatus } from '../../types';
 import {
@@ -14,6 +14,10 @@ import {
   Clock,
   UserCheck,
   ChevronRight,
+  ChevronLeft,
+  Search,
+  ArrowUpDown,
+  X,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -27,6 +31,11 @@ export const PsychologistDashboard: React.FC = () => {
   } = useApp();
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'in_progress' | 'completed'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'urgent'>('newest');
+  const [page, setPage] = useState(1);
+  const pageSize = 4;
+
   const [selectedSessionId, setSelectedSessionId] = useState<string>(
     consultations[0]?.id || ''
   );
@@ -36,14 +45,42 @@ export const PsychologistDashboard: React.FC = () => {
   const [privateNotesDraft, setPrivateNotesDraft] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
 
-  const selectedSession = consultations.find((c) => c.id === selectedSessionId) || consultations[0];
+  const filteredSessions = useMemo(() => {
+    return consultations
+      .filter((c) => {
+        if (activeFilter === 'pending' && c.status !== 'pending') return false;
+        if (activeFilter === 'in_progress' && c.status !== 'in_progress' && c.status !== 'awaiting_student') return false;
+        if (activeFilter === 'completed' && c.status !== 'completed') return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchTopic = c.topic.toLowerCase().includes(q);
+          const matchStudent = c.studentName.toLowerCase().includes(q);
+          if (!matchTopic && !matchStudent) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortOrder === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        if (sortOrder === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        if (sortOrder === 'urgent') {
+          const priority = (st: ConsultationStatus) => (st === 'needs_followup' ? 3 : st === 'pending' ? 2 : st === 'in_progress' ? 1 : 0);
+          return priority(b.status) - priority(a.status);
+        }
+        return 0;
+      });
+  }, [consultations, activeFilter, searchQuery, sortOrder]);
 
-  const filteredSessions = consultations.filter((c) => {
-    if (activeFilter === 'pending') return c.status === 'pending';
-    if (activeFilter === 'in_progress') return c.status === 'in_progress' || c.status === 'awaiting_student';
-    if (activeFilter === 'completed') return c.status === 'completed';
-    return true;
-  });
+  const totalPages = Math.max(1, Math.ceil(filteredSessions.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paginatedSessions = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredSessions.slice(start, start + pageSize);
+  }, [filteredSessions, safePage, pageSize]);
+
+  const selectedSession =
+    filteredSessions.find((c) => c.id === selectedSessionId) ||
+    consultations.find((c) => c.id === selectedSessionId) ||
+    filteredSessions[0];
 
   // Get shared journals for selected session
   const sessionJournals = journalEntries.filter((j) =>
@@ -140,18 +177,68 @@ export const PsychologistDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Session Queue (4 cols) */}
         <div className="lg:col-span-4 space-y-5">
-          <div className="bg-white rounded-3xl p-5 border border-purple-100/80 shadow-xs">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white rounded-3xl p-5 border border-purple-100/80 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
               <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-indigo-600" />
-                Hàng đợi tham vấn ({consultations.length})
+                Hàng đợi ({filteredSessions.length})
               </h3>
+              <span className="text-[10px] text-slate-400 font-semibold">
+                Trang {safePage}/{totalPages}
+              </span>
+            </div>
+
+            {/* Search and Sort */}
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm học sinh, chủ đề..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full pl-8 pr-7 py-2 rounded-xl text-xs border border-slate-200 focus:outline-hidden bg-slate-50 text-slate-900"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setPage(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-1 text-[11px]">
+                <span className="text-slate-400 font-medium text-[10px]">Thứ tự:</span>
+                <select
+                  value={sortOrder}
+                  onChange={(e) => {
+                    setSortOrder(e.target.value as any);
+                    setPage(1);
+                  }}
+                  className="py-1 px-2 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700"
+                >
+                  <option value="newest">🕒 Mới nhất</option>
+                  <option value="oldest">⏳ Cũ nhất</option>
+                  <option value="urgent">⚡ Ưu tiên</option>
+                </select>
+              </div>
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1 no-scrollbar">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
               <button
-                onClick={() => setActiveFilter('all')}
+                onClick={() => {
+                  setActiveFilter('all');
+                  setPage(1);
+                }}
                 className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
                   activeFilter === 'all' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
@@ -159,7 +246,10 @@ export const PsychologistDashboard: React.FC = () => {
                 Tất cả ({consultations.length})
               </button>
               <button
-                onClick={() => setActiveFilter('pending')}
+                onClick={() => {
+                  setActiveFilter('pending');
+                  setPage(1);
+                }}
                 className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
                   activeFilter === 'pending' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
@@ -167,7 +257,10 @@ export const PsychologistDashboard: React.FC = () => {
                 Chờ nhận
               </button>
               <button
-                onClick={() => setActiveFilter('in_progress')}
+                onClick={() => {
+                  setActiveFilter('in_progress');
+                  setPage(1);
+                }}
                 className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
                   activeFilter === 'in_progress' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
@@ -177,36 +270,65 @@ export const PsychologistDashboard: React.FC = () => {
             </div>
 
             {/* Session List */}
-            <div className="space-y-2.5 max-h-[550px] overflow-y-auto pr-1">
-              {filteredSessions.map((session) => {
-                const isSelected = selectedSession?.id === session.id;
-                return (
-                  <div
-                    key={session.id}
-                    onClick={() => setSelectedSessionId(session.id)}
-                    className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                      isSelected
-                        ? 'bg-purple-50/70 border-2 border-purple-600 shadow-xs'
-                        : 'border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <span className="text-xs font-bold text-slate-900 line-clamp-1">
-                        {session.studentName} ({session.studentGrade || 'Lớp 11'})
-                      </span>
-                      {getStatusBadge(session.status)}
+            <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+              {paginatedSessions.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400 italic">
+                  Không có phiên tham vấn nào khớp bộ lọc
+                </div>
+              ) : (
+                paginatedSessions.map((session) => {
+                  const isSelected = selectedSession?.id === session.id;
+                  return (
+                    <div
+                      key={session.id}
+                      onClick={() => setSelectedSessionId(session.id)}
+                      className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-purple-50/70 border-2 border-purple-600 shadow-xs'
+                          : 'border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <span className="text-xs font-bold text-slate-900 line-clamp-1">
+                          {session.studentName} ({session.studentGrade || 'Lớp 11'})
+                        </span>
+                        {getStatusBadge(session.status)}
+                      </div>
+                      <p className="text-xs text-slate-700 line-clamp-2 mb-2">
+                        {session.topic}
+                      </p>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-slate-100">
+                        <span>Đính kèm {session.sharedJournalIds.length} nhật ký</span>
+                        <span>{new Date(session.createdAt).toLocaleDateString('vi-VN')}</span>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-700 line-clamp-2 mb-2">
-                      {session.topic}
-                    </p>
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-slate-100">
-                      <span>Đính kèm {session.sharedJournalIds.length} nhật ký</span>
-                      <span>{new Date(session.createdAt).toLocaleDateString('vi-VN')}</span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                  className="p-1 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-30 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-[11px] font-bold text-slate-700">
+                  {safePage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                  className="p-1 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-30 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Shared Journal Inspection Widget */}

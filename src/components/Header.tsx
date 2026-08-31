@@ -191,14 +191,16 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </button>
 
-            {/* Data & XML Database Manager */}
+          {/* Data & XML Database Manager - Only visible when logged in as Admin */}
+          {isAuthenticated && currentUser.role === 'admin' && (
             <button
               onClick={onOpenDataManagement}
               className="p-2 rounded-full text-slate-600 hover:text-cyan-700 hover:bg-cyan-50 transition-colors border border-transparent hover:border-cyan-100 flex items-center gap-1"
-              title="Sao lưu dữ liệu lâu dài (Xuất XML / JSON / SQL & Đồng bộ Database)"
+              title="Sao lưu dữ liệu lâu dài (Xuất XML / JSON / SQL & Quản trị Database)"
             >
               <Database className="w-5 h-5 text-cyan-600" />
             </button>
+          )}
 
             {/* Privacy & Security */}
             <button

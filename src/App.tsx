@@ -215,14 +215,18 @@ const MainApp: React.FC = () => {
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>Bảo mật & Quyền riêng tư</span>
             </button>
-            <span>•</span>
-            <button
-              onClick={() => setIsDataManagementOpen(true)}
-              className="flex items-center gap-1 hover:text-cyan-700 transition-colors"
-            >
-              <Database className="w-4 h-4 text-cyan-600" />
-              <span>Xuất / Nhập Dữ Liệu XML & Database</span>
-            </button>
+            {isAuthenticated && currentUser.role === 'admin' && (
+              <>
+                <span>•</span>
+                <button
+                  onClick={() => setIsDataManagementOpen(true)}
+                  className="flex items-center gap-1 hover:text-cyan-700 transition-colors text-cyan-700 font-bold"
+                >
+                  <Database className="w-4 h-4 text-cyan-600" />
+                  <span>Sao Lưu & Đồng Bộ Database (Admin)</span>
+                </button>
+              </>
+            )}
             <span>•</span>
             <button
               onClick={() => setIsHappinessModalOpen(true)}

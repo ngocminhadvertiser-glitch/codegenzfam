@@ -60,6 +60,8 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
     happinessHistory,
     notifications,
     auditLogs,
+    currentUser,
+    isAuthenticated,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'sqlite' | 'export' | 'import' | 'cloud' | 'reset'>('sqlite');
@@ -98,7 +100,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
     }
   }, [isOpen, users, journalEntries, consultations, family, challengeTasks, deepTalkTopics, happinessHistory]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !isAuthenticated || currentUser.role !== 'admin') return null;
 
   const handleCopy = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
