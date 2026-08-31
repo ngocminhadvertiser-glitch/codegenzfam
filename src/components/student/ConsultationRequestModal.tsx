@@ -39,10 +39,10 @@ export const ConsultationRequestModal: React.FC<ConsultationRequestModalProps> =
 
   const TOPIC_SUGGESTIONS = [
     'Giải tỏa áp lực thi cử và vượt qua nỗi lo điểm số',
-    'Cầu nối giao tiếp: Bày tỏ đam mê ngành nghề với Bố Mẹ',
-    'Khủng hoảng tâm lý & Cảm giác mất động lực học tập',
-    'Mối quan hệ bạn bè & Xử lý áp lực đồng trang lứa',
-    'Bất đồng quan điểm gia đình & Cảm giác không được thấu hiểu',
+    'Cầu nối giao tiếp: Bày tỏ đam mê ngành nghề với bố mẹ',
+    'Khủng hoảng tâm lý & cảm giác mất động lực học tập',
+    'Mối quan hệ bạn bè & xử lý áp lực đồng trang lứa',
+    'Bất đồng quan điểm gia đình & cảm giác không được thấu hiểu',
   ];
 
   const handleToggleJournal = (id: string) => {
@@ -83,7 +83,7 @@ export const ConsultationRequestModal: React.FC<ConsultationRequestModalProps> =
           <div>
             <div className="flex items-center gap-2">
               <Stethoscope className="w-5 h-5 text-cyan-300" />
-              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">Yêu Cầu Tham Vấn Chuyên Gia Tâm Lý</h2>
+              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">Yêu cầu tham vấn chuyên gia tâm lý</h2>
             </div>
             <p className="text-xs text-indigo-100 mt-1 font-normal">
               Cầu nối chuyên môn an toàn – Bảo mật thông tin & Định hướng hành động
@@ -108,7 +108,7 @@ export const ConsultationRequestModal: React.FC<ConsultationRequestModalProps> =
           {/* 1. Chọn Chuyên gia */}
           <div>
             <label className="block text-[10px] font-extrabold text-slate-600 uppercase tracking-widest mb-2.5">
-              1. Chọn Chuyên gia Tâm lý tham vấn:
+              1. Chọn chuyên gia tâm lý tham vấn:
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {psychologists.map((psych) => {
@@ -184,7 +184,7 @@ export const ConsultationRequestModal: React.FC<ConsultationRequestModalProps> =
             <div className="flex items-center justify-between mb-2">
               <label className="text-[10px] font-extrabold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
                 <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
-                3. Chọn nhật ký muốn chia sẻ cho Chuyên gia xem:
+                3. Chọn nhật ký muốn chia sẻ cho chuyên gia xem:
               </label>
               <span className="text-[11px] text-slate-500">
                 (Đã chọn {selectedJournalIds.length} nhật ký)
@@ -234,7 +234,7 @@ export const ConsultationRequestModal: React.FC<ConsultationRequestModalProps> =
           {/* 4. Nội dung chia sẻ / Câu hỏi đầu tiên */}
           <div>
             <label className="block text-[10px] font-extrabold text-slate-600 uppercase tracking-widest mb-1.5">
-              4. Chia sẻ của bạn gửi tới Chuyên gia: <span className="text-rose-500">*</span>
+              4. Chia sẻ của bạn gửi tới chuyên gia: <span className="text-rose-500">*</span>
             </label>
             <textarea
               rows={4}

@@ -102,7 +102,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           <div className="relative z-10 flex items-start justify-between">
             <div className="max-w-xl">
               <span className="text-[10px] font-extrabold uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full text-pink-100 border border-white/20">
-                Góc Cha Mẹ Thấu Cảm
+                Góc cha mẹ thấu cảm
               </span>
               <h2 className="text-2xl sm:text-3xl font-extrabold mt-3 tracking-tight">
                 Đồng hành cùng con ở lứa tuổi THPT 🌸
@@ -127,7 +127,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
               className="px-5 py-3 bg-white/15 hover:bg-white/25 text-white font-bold text-xs uppercase tracking-wider rounded-full backdrop-blur-md border border-white/20 transition-all flex items-center gap-1.5"
             >
               <Sparkles className="w-4 h-4 text-amber-300" />
-              Tư vấn cùng Trợ lý AI CODE
+              Tư vấn cùng trợ lý AI CODE
             </button>
           </div>
         </div>
@@ -137,7 +137,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">
-                Điểm Hạnh Phúc Gia Đình
+                Điểm hạnh phúc gia đình
               </span>
               <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
                 <Award className="w-4 h-4" />
@@ -154,7 +154,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
           <div className="mt-6 pt-4 border-t border-slate-100">
             <div className="flex items-center justify-between text-xs mb-2">
-              <span className="text-slate-600 font-medium">Cấp 2: Nhịp Cầu Yêu Thương</span>
+              <span className="text-slate-600 font-medium">Cấp 2: Nhịp cầu yêu thương</span>
               <span className="font-bold text-purple-700">480/500</span>
             </div>
             <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden p-0.5">
@@ -180,7 +180,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
-                    AI Parent Coach – Hướng Dẫn Đồng Cảm & Phản Hồi
+                    AI Parent Coach – Hướng dẫn đồng cảm & phản hồi
                   </h3>
                   <p className="text-xs text-slate-500">
                     Phân tích tâm lý từ nhật ký của con để gợi ý cha mẹ cách mở lời khéo léo nhất

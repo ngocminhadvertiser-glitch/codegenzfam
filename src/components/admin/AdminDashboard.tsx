@@ -279,7 +279,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
               <div className="text-[10px] font-extrabold uppercase tracking-widest text-pink-300 mb-1">
                 SYSTEM CONTROLLER
               </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Trung Tâm Quản Trị Hệ Thống CODE GenZ</h2>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Trung tâm quản trị hệ thống CODE GenZ</h2>
               <p className="text-xs sm:text-sm text-purple-100 mt-1 font-normal leading-relaxed">
                 Giám sát vận hành, quản lý ngân hàng thử thách, kiểm duyệt chuyên gia & kiểm toán an ninh
               </p>
@@ -295,7 +295,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
           { id: 'users', label: `Người dùng (${users.length})` },
           { id: 'challenges', label: `Thử thách 30 ngày (${challengeTasks.length})` },
           { id: 'deeptalk', label: `Chủ đề Deep Talk (${deepTalkTopics.length})` },
-          { id: 'database', label: 'XML Database & Sao Lưu Lâu Dài' },
+          { id: 'database', label: 'XML Database & sao lưu lâu dài' },
           { id: 'audit', label: `Kiểm toán bảo mật (${auditLogs.length})` },
         ].map((tab) => (
           <button
@@ -377,7 +377,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
             <div>
               <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
                 <Users className="w-5 h-5 text-purple-600" />
-                Quản lý & Phân quyền Người dùng (RBAC)
+                Quản lý & phân quyền người dùng (RBAC)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Xem danh sách, tạo mới, chỉnh sửa thông tin, đặt lại mật khẩu và cấp quyền chi tiết trong hệ thống

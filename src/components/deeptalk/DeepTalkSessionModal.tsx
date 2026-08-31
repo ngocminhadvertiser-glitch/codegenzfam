@@ -77,7 +77,7 @@ export const DeepTalkSessionModal: React.FC<DeepTalkSessionModalProps> = ({
             <div>
               <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">{topic.title}</h2>
               <p className="text-xs text-emerald-100 mt-0.5 font-medium">
-                Phiên Deep Talk • Gợi ý cho cả Con và Cha Mẹ
+                Phiên Deep Talk • Gợi ý cho cả con và cha mẹ
               </p>
             </div>
           </div>
@@ -119,13 +119,13 @@ export const DeepTalkSessionModal: React.FC<DeepTalkSessionModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 text-xs">
                 <div className="bg-purple-50/80 p-4 rounded-2xl border border-purple-200/80">
                   <span className="font-extrabold text-purple-900 block mb-1">
-                    🌱 Gợi ý cho Con:
+                    🌱 Gợi ý cho con:
                   </span>
                   <p className="text-slate-700 leading-relaxed">{currentQ.hintForStudent}</p>
                 </div>
                 <div className="bg-pink-50/80 p-4 rounded-2xl border border-pink-200/80">
                   <span className="font-extrabold text-pink-900 block mb-1">
-                    🌸 Gợi ý cho Cha Mẹ:
+                    🌸 Gợi ý cho cha mẹ:
                   </span>
                   <p className="text-slate-700 leading-relaxed">{currentQ.hintForParent}</p>
                 </div>
@@ -149,7 +149,7 @@ export const DeepTalkSessionModal: React.FC<DeepTalkSessionModalProps> = ({
 
               <div>
                 <label className="text-[10px] font-extrabold uppercase tracking-widest text-pink-800 flex items-center gap-1.5 mb-1.5">
-                  <span>Cha Mẹ chia sẻ / Lắng nghe phản hồi:</span>
+                  <span>Cha mẹ chia sẻ / lắng nghe phản hồi:</span>
                 </label>
                 <textarea
                   rows={2}

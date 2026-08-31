@@ -132,7 +132,7 @@ const MainApp: React.FC = () => {
 
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold my-2">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>Trợ Lý AI Thấu Cảm & Cố Vấn Giao Tiếp Gia Đình</span>
+                <span>Trợ lý AI thấu cảm & cố vấn giao tiếp gia đình</span>
               </div>
 
               <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed mt-2">
@@ -145,7 +145,7 @@ const MainApp: React.FC = () => {
                   className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white font-bold text-xs uppercase tracking-wider rounded-full shadow-md hover:shadow-lg transition-all inline-flex items-center gap-2 active:scale-95"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  <span>Trò chuyện cùng Trợ lý AI CODE</span>
+                  <span>Trò chuyện cùng trợ lý AI CODE</span>
                 </button>
               </div>
             </div>
@@ -203,7 +203,7 @@ const MainApp: React.FC = () => {
                   className="flex items-center gap-1 hover:text-indigo-600 transition-colors"
                 >
                   <Users className="w-4 h-4 text-indigo-600" />
-                  <span>Kết Nối Tổ Ấm & Thành Viên</span>
+                  <span>Kết nối tổ ấm & thành viên</span>
                 </button>
                 <span>•</span>
               </>
@@ -213,7 +213,7 @@ const MainApp: React.FC = () => {
               className="flex items-center gap-1 hover:text-indigo-600 transition-colors"
             >
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Bảo mật & Quyền riêng tư</span>
+              <span>Bảo mật & quyền riêng tư</span>
             </button>
             {isAuthenticated && currentUser.role === 'admin' && (
               <>
@@ -223,7 +223,7 @@ const MainApp: React.FC = () => {
                   className="flex items-center gap-1 hover:text-cyan-700 transition-colors text-cyan-700 font-bold"
                 >
                   <Database className="w-4 h-4 text-cyan-600" />
-                  <span>Sao Lưu & Đồng Bộ Database (Admin)</span>
+                  <span>Sao lưu & đồng bộ cơ sở dữ liệu (Admin)</span>
                 </button>
               </>
             )}
@@ -233,7 +233,7 @@ const MainApp: React.FC = () => {
               className="flex items-center gap-1 hover:text-amber-600 transition-colors"
             >
               <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>Quỹ Hạnh Phúc Gia Đình</span>
+              <span>Quỹ hạnh phúc gia đình</span>
             </button>
           </div>
 

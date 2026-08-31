@@ -32,23 +32,20 @@ export const ConsultationModule: React.FC<ConsultationModuleProps> = ({
 }) => {
   const {
     currentUser,
-    consultations,
+    getFilteredConsultationsForUser,
     journalEntries,
     sendConsultationMessage,
     updateConsultationStatus,
+    setActiveTab,
   } = useApp();
 
   const isPsych = currentUser.role === 'psychologist';
   const isParent = currentUser.role === 'parent';
 
-  // Filter consultations based on role
+  // Filter consultations based on strict role & privacy rules
   const baseConsultations = useMemo(() => {
-    return consultations.filter((c) => {
-      if (isPsych) return c.psychologistId === currentUser.id || !c.psychologistId;
-      if (isParent) return true;
-      return c.studentId === currentUser.id;
-    });
-  }, [consultations, isPsych, isParent, currentUser.id]);
+    return getFilteredConsultationsForUser(currentUser);
+  }, [getFilteredConsultationsForUser, currentUser]);
 
   // Session search, filter, sort & pagination state
   const [sessionSearch, setSessionSearch] = useState('');
@@ -154,6 +151,36 @@ export const ConsultationModule: React.FC<ConsultationModuleProps> = ({
     }
   };
 
+  // If user is Admin, protect privacy with Zero-Trust rule
+  if (currentUser.role === 'admin') {
+    return (
+      <div className="bg-white rounded-3xl p-8 sm:p-12 border border-purple-100 text-center space-y-5 max-w-2xl mx-auto shadow-xs">
+        <div className="w-16 h-16 rounded-3xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto border border-teal-200">
+          <ShieldCheck className="w-8 h-8 text-teal-600" />
+        </div>
+        <div>
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-teal-700 bg-teal-50 px-3 py-1 rounded-full border border-teal-100">
+            QUY CHUẨN ĐẠO ĐỨC TÂM LÝ & ZERO-TRUST
+          </span>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-3">
+            Bảo mật tuyệt đối phiên tham vấn học sinh
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
+            Hồ sơ và cuộc trò chuyện tham vấn là không gian bảo mật 1-1 giữa <strong>Học sinh và Chuyên gia tâm lý học đường</strong>. Tài khoản Quản trị viên chỉ quản trị danh mục chuyên gia, người dùng và phân quyền RBAC, <strong>không được phép truy cập nội dung tham vấn riêng tư</strong>.
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => setActiveTab('admin')}
+            className="px-6 py-3 bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-sm transition-all cursor-pointer"
+          >
+            Quay lại Quản trị hệ thống
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Top Banner */}
@@ -169,7 +196,7 @@ export const ConsultationModule: React.FC<ConsultationModuleProps> = ({
               </span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              {isPsych ? 'Hồ Sơ & Hàng Đợi Tham Vấn Chuyên Môn' : 'Đồng Hành Cùng Chuyên Gia Tâm Lý'}
+              {isPsych ? 'Hồ sơ & hàng đợi tham vấn chuyên môn' : 'Đồng hành cùng chuyên gia tâm lý'}
             </h2>
             <p className="text-xs sm:text-sm text-indigo-100 mt-2 max-w-2xl font-normal leading-relaxed">
               Giải tỏa căng thẳng học tập, định hướng ngành nghề và hóa giải mâu thuẫn gia đình cùng đội ngũ Thạc sĩ, Tiến sĩ Tâm lý uy tín.
@@ -485,13 +512,13 @@ export const ConsultationModule: React.FC<ConsultationModuleProps> = ({
                 <div className="bg-white rounded-3xl p-6 border border-purple-100 shadow-xs space-y-4">
                   <div className="flex items-center gap-2 text-indigo-700 font-extrabold text-base">
                     <Sparkles className="w-5 h-5 text-indigo-600" />
-                    <span>Định Hướng Chuyên Môn Từ Chuyên Gia Tâm Lý</span>
+                    <span>Định hướng chuyên môn từ chuyên gia tâm lý</span>
                   </div>
 
                   {selectedSession.officialFeedback && (
                     <div>
                       <h5 className="text-[10px] font-extrabold text-slate-600 uppercase tracking-widest mb-1.5">
-                        1. Phân tích & Lời khuyên tâm lý:
+                        1. Phân tích & lời khuyên tâm lý:
                       </h5>
                       <p className="text-xs sm:text-sm text-slate-800 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-200">
                         {selectedSession.officialFeedback}

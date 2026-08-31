@@ -161,7 +161,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">
-                Điểm Hạnh Phúc Gia Đình
+                Điểm hạnh phúc gia đình
               </span>
               <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
                 <Award className="w-4 h-4" />
@@ -178,7 +178,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
           <div className="mt-6 pt-4 border-t border-slate-100">
             <div className="flex items-center justify-between text-xs mb-2">
-              <span className="text-slate-600 font-medium">Cấp độ: Nhịp Cầu Yêu Thương</span>
+              <span className="text-slate-600 font-medium">Cấp độ: Nhịp cầu yêu thương</span>
               <span className="font-bold text-purple-700">480/500</span>
             </div>
             <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden p-0.5">
@@ -204,7 +204,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
-                    Tham Vấn Chuyên Gia Tâm Lý ({myConsultations.length})
+                    Tham vấn chuyên gia tâm lý ({myConsultations.length})
                   </h3>
                   <p className="text-xs text-slate-500">
                     Kênh tham vấn chuyên môn, bảo mật tuyệt đối và định hướng khoa học
@@ -273,7 +273,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
-                    Thử Thách 30 Ngày Kết Nối (Ngày {todayTask.day}/30)
+                    Thử thách 30 ngày kết nối (Ngày {todayTask.day}/30)
                   </h3>
                   <p className="text-xs text-slate-500">
                     Giai đoạn 2: {todayTask.stageName} • +{todayTask.points} Happiness Points

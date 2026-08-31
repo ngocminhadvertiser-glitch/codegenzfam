@@ -24,11 +24,19 @@ import {
 export const PsychologistDashboard: React.FC = () => {
   const {
     currentUser,
-    consultations,
-    journalEntries,
+    getFilteredConsultationsForUser,
+    getFilteredJournalsForUser,
     sendConsultationMessage,
     updateConsultationStatus,
   } = useApp();
+
+  const psychConsultations = useMemo(() => {
+    return getFilteredConsultationsForUser(currentUser);
+  }, [getFilteredConsultationsForUser, currentUser]);
+
+  const psychJournals = useMemo(() => {
+    return getFilteredJournalsForUser(currentUser);
+  }, [getFilteredJournalsForUser, currentUser]);
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'in_progress' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,7 +45,7 @@ export const PsychologistDashboard: React.FC = () => {
   const pageSize = 4;
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>(
-    consultations[0]?.id || ''
+    psychConsultations[0]?.id || ''
   );
   const [replyText, setReplyText] = useState('');
   const [feedbackDraft, setFeedbackDraft] = useState('');
@@ -46,7 +54,7 @@ export const PsychologistDashboard: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState('');
 
   const filteredSessions = useMemo(() => {
-    return consultations
+    return psychConsultations
       .filter((c) => {
         if (activeFilter === 'pending' && c.status !== 'pending') return false;
         if (activeFilter === 'in_progress' && c.status !== 'in_progress' && c.status !== 'awaiting_student') return false;
@@ -68,7 +76,7 @@ export const PsychologistDashboard: React.FC = () => {
         }
         return 0;
       });
-  }, [consultations, activeFilter, searchQuery, sortOrder]);
+  }, [psychConsultations, activeFilter, searchQuery, sortOrder]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSessions.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -79,11 +87,11 @@ export const PsychologistDashboard: React.FC = () => {
 
   const selectedSession =
     filteredSessions.find((c) => c.id === selectedSessionId) ||
-    consultations.find((c) => c.id === selectedSessionId) ||
+    psychConsultations.find((c) => c.id === selectedSessionId) ||
     filteredSessions[0];
 
-  // Get shared journals for selected session
-  const sessionJournals = journalEntries.filter((j) =>
+  // Get shared journals for selected session (strictly filtered by RBAC)
+  const sessionJournals = psychJournals.filter((j) =>
     selectedSession?.sharedJournalIds?.includes(j.id)
   );
 
@@ -141,14 +149,14 @@ export const PsychologistDashboard: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="bg-white/15 text-cyan-200 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border border-white/20">
-                Bàn Làm Việc Chuyên Gia Tâm Lý Học Đường
+                Bàn làm việc chuyên gia tâm lý học đường
               </span>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-200 px-3 py-1 rounded-full flex items-center gap-1 font-bold uppercase tracking-wider border border-emerald-400/30">
-                <ShieldCheck className="w-3.5 h-3.5" /> Chuẩn Bảo Mật Tham Vấn
+                <ShieldCheck className="w-3.5 h-3.5" /> Chuẩn bảo mật tham vấn
               </span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Không gian tham vấn chuyên nghiệp & Định hướng hành động
+              Không gian tham vấn chuyên nghiệp & định hướng hành động
             </h2>
             <p className="text-xs sm:text-sm text-purple-100 mt-2 max-w-2xl font-normal leading-relaxed">
               Tiếp nhận học sinh qua phân quyền rõ ràng. Toàn bộ thông tin chia sẻ và ghi chú lâm sàng được bảo mật nghiêm ngặt.
@@ -243,7 +251,7 @@ export const PsychologistDashboard: React.FC = () => {
                   activeFilter === 'all' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Tất cả ({consultations.length})
+                Tất cả ({psychConsultations.length})
               </button>
               <button
                 onClick={() => {

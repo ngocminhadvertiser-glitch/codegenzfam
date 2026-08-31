@@ -45,6 +45,7 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
     addParentReaction,
     isAuthenticated,
     openAuthModal,
+    setActiveTab,
   } = useApp();
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'shared_parent' | 'shared_psych' | 'private'>('all');
@@ -163,19 +164,19 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
       case 'share_parent':
         return (
           <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider bg-pink-50 text-pink-700 px-2.5 py-0.5 rounded-full border border-pink-200">
-            <Users className="w-3 h-3 text-pink-600" /> Chia sẻ Cha Mẹ
+            <Users className="w-3 h-3 text-pink-600" /> Chia sẻ cha mẹ
           </span>
         );
       case 'share_psychologist':
         return (
           <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full border border-indigo-200">
-            <Stethoscope className="w-3 h-3 text-indigo-600" /> Gửi Chuyên gia
+            <Stethoscope className="w-3 h-3 text-indigo-600" /> Gửi chuyên gia
           </span>
         );
       case 'share_all':
         return (
           <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider bg-purple-50 text-purple-700 px-2.5 py-0.5 rounded-full border border-purple-200">
-            <Globe2 className="w-3 h-3 text-purple-600" /> Chia sẻ Cả hai
+            <Globe2 className="w-3 h-3 text-purple-600" /> Chia sẻ cả hai
           </span>
         );
     }
@@ -242,7 +243,7 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
               <span>Bảo mật dữ liệu cá nhân theo tiêu chuẩn C-O-D-E</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Nhật Ký Cảm Xúc Cá Nhân 📖
+              Nhật ký cảm xúc cá nhân 📖
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 mt-2 font-normal leading-relaxed">
               Không gian an toàn để bạn trút bỏ áp lực điểm số, thi cử và cảm xúc tuổi mới lớn. Bạn nắm toàn quyền phân quyền từng dòng nhật ký được lưu trữ.
@@ -288,7 +289,7 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
                 <Lock className="w-5 h-5 text-amber-300" />
               </div>
               <div className="flex items-center gap-2">
-                <h4 className="text-sm font-bold text-white">1. Chỉ Mình Tôi</h4>
+                <h4 className="text-sm font-bold text-white">1. Chỉ mình tôi</h4>
                 <span className="text-[9px] bg-white/20 text-slate-200 px-2 py-0.5 rounded-full font-bold uppercase">Bí mật</span>
               </div>
               <p className="text-xs text-slate-300 mt-2 leading-relaxed">
@@ -302,7 +303,7 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
                 <Users className="w-5 h-5 text-pink-300" />
               </div>
               <div className="flex items-center gap-2">
-                <h4 className="text-sm font-bold text-white">2. Chia sẻ Cha Mẹ</h4>
+                <h4 className="text-sm font-bold text-white">2. Chia sẻ cha mẹ</h4>
                 <span className="text-[9px] bg-pink-500/30 text-pink-200 px-2 py-0.5 rounded-full font-bold uppercase">Gia đình</span>
               </div>
               <p className="text-xs text-slate-300 mt-2 leading-relaxed">
@@ -316,7 +317,7 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
                 <Stethoscope className="w-5 h-5 text-indigo-300" />
               </div>
               <div className="flex items-center gap-2">
-                <h4 className="text-sm font-bold text-white">3. Gửi Chuyên Gia</h4>
+                <h4 className="text-sm font-bold text-white">3. Gửi chuyên gia</h4>
                 <span className="text-[9px] bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-full font-bold uppercase">Chuyên môn</span>
               </div>
               <p className="text-xs text-slate-300 mt-2 leading-relaxed">
@@ -330,7 +331,7 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
                 <Globe2 className="w-5 h-5 text-purple-300" />
               </div>
               <div className="flex items-center gap-2">
-                <h4 className="text-sm font-bold text-white">4. Chia Sẻ Cả Hai</h4>
+                <h4 className="text-sm font-bold text-white">4. Chia sẻ cả hai</h4>
                 <span className="text-[9px] bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded-full font-bold uppercase">Toàn diện</span>
               </div>
               <p className="text-xs text-slate-300 mt-2 leading-relaxed">
@@ -360,6 +361,36 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
     );
   }
 
+  // If user is Admin, protect privacy with Zero-Trust rule
+  if (currentUser.role === 'admin') {
+    return (
+      <div className="bg-white rounded-3xl p-8 sm:p-12 border border-purple-100 text-center space-y-5 max-w-2xl mx-auto shadow-xs">
+        <div className="w-16 h-16 rounded-3xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto border border-purple-200">
+          <Lock className="w-8 h-8 text-purple-600" />
+        </div>
+        <div>
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-purple-700 bg-purple-50 px-3 py-1 rounded-full border border-purple-100">
+            NGUYÊN TẮC BẢO MẬT ZERO-TRUST
+          </span>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-3">
+            Quyền riêng tư nhật ký được bảo vệ tuyệt đối
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
+            Theo nguyên tắc đạo đức tâm lý học đường và phân quyền RBAC của CODE GenZ, <strong>Quản trị viên</strong> chỉ quản trị tài khoản, phân quyền và cơ sở dữ liệu hệ thống, <strong>không có quyền đọc nội dung nhật ký cảm xúc cá nhân</strong> của học sinh và gia đình.
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => setActiveTab('admin')}
+            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-sm transition-all cursor-pointer"
+          >
+            Quay lại trung tâm quản trị
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div id="journal-list-top" className="space-y-6">
       {/* Header & Role Context Banner */}
@@ -376,10 +407,10 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
           <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
             <span>📖</span>
             {currentUser.role === 'parent'
-              ? 'Nhật Ký Cảm Xúc Con Chia Sẻ'
+              ? 'Nhật ký cảm xúc con chia sẻ'
               : currentUser.role === 'psychologist'
-              ? 'Nhật Ký Học Sinh Phân Quyền Cho Bạn'
-              : 'Nhật Ký Cảm Xúc Của Bạn'}
+              ? 'Nhật ký học sinh phân quyền cho bạn'
+              : 'Nhật ký cảm xúc của bạn'}
           </h2>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl font-normal leading-relaxed">
             {currentUser.role === 'parent'
@@ -519,7 +550,7 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  👨‍👩‍👧 Cha Mẹ
+                  👨‍👩‍👧 Cha mẹ
                 </button>
                 <button
                   onClick={() => {
@@ -898,9 +929,9 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
                         className="text-xs font-semibold border border-slate-200 rounded-full px-3 py-1.5 bg-white text-slate-800 focus:ring-1 focus:ring-purple-500"
                       >
                         <option value="private">🔒 Chỉ riêng tôi</option>
-                        <option value="share_parent">👨‍👩‍👧 Chia sẻ Cha Mẹ</option>
-                        <option value="share_psychologist">🩺 Chia sẻ Chuyên gia</option>
-                        <option value="share_all">🌐 Chia sẻ Cả hai</option>
+                        <option value="share_parent">👨‍👩‍👧 Chia sẻ cha mẹ</option>
+                        <option value="share_psychologist">🩺 Chia sẻ chuyên gia</option>
+                        <option value="share_all">🌐 Chia sẻ cả hai</option>
                       </select>
                     </div>
 
@@ -911,7 +942,7 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
                         className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-full text-xs font-extrabold uppercase tracking-wider transition-colors flex items-center gap-1.5 border border-indigo-200"
                       >
                         <Stethoscope className="w-3.5 h-3.5" />
-                        Gửi tham vấn Chuyên gia từ nhật ký này
+                        Gửi tham vấn chuyên gia từ nhật ký này
                       </button>
                     ) : (
                       <span className="text-xs text-indigo-700 font-extrabold uppercase tracking-wider bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-200">
@@ -926,7 +957,7 @@ export const EmotionJournalList: React.FC<EmotionJournalListProps> = ({
                   <div className="bg-pink-50/60 border border-pink-200 rounded-2xl p-4 space-y-3">
                     <h5 className="text-xs font-extrabold text-pink-900 uppercase tracking-wider flex items-center gap-1.5">
                       <Heart className="w-3.5 h-3.5 text-pink-600 fill-pink-600" />
-                      Phản hồi yêu thương từ Cha Mẹ ({journal.parentReactions.length}):
+                      Phản hồi yêu thương từ cha mẹ ({journal.parentReactions.length}):
                     </h5>
                     <div className="space-y-2">
                       {journal.parentReactions.map((react) => (

@@ -117,6 +117,7 @@ interface AppContextType {
   adminAddChallengeTask: (task: Challenge30DayTask) => void;
   adminAddDeepTalkTopic: (topic: DeepTalkTopic) => void;
   getFilteredJournalsForUser: (user: User) => EmotionJournalEntry[];
+  getFilteredConsultationsForUser: (user: User) => ConsultationSession[];
   getFullDatabaseSnapshot: () => AppFullDatabase;
   restoreFullDatabase: (data: Partial<AppFullDatabase>, mergeMode?: 'overwrite' | 'merge') => Promise<{ success: boolean; message: string }>;
   resetToInitialData: () => Promise<void>;
@@ -472,7 +473,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       addAuditLog('SWITCH_USER_ROLE', `user:${userId}`, `Chuyển sang người dùng ${target.name} (${target.role})`);
-      setActiveTab('dashboard');
+      if (target.role === 'admin') {
+        setActiveTab('admin');
+      } else {
+        setActiveTab('dashboard');
+      }
     }
   };
 
@@ -1363,21 +1368,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addAuditLog('ADMIN_ADD_DEEPTALK', topic.id, `Quản trị viên thêm chủ đề Deep Talk: ${topic.title}`);
   };
 
-  // RBAC and Privacy filter: Strictly respect student's privacy choice!
+  // RBAC and Privacy filter: Strictly respect user roles and privacy boundaries!
   const getFilteredJournalsForUser = (user: User): EmotionJournalEntry[] => {
     if (!isAuthenticated) {
       return [];
     }
+    // 1. Student: ONLY sees their own journals
     if (user.role === 'student') {
       return journalEntries.filter((j) => j.studentId === user.id);
     }
+    // 2. Parent: ONLY sees journals of their own children (same family) that are shared with parents
     if (user.role === 'parent') {
       return journalEntries.filter(
         (j) =>
-          (j.familyId === user.familyId || !j.familyId) &&
-          (j.privacy === 'parents_only' || j.privacy === 'family_open' || (j.privacy as any) === 'share_parent' || (j.privacy as any) === 'share_all')
+          (j.familyId === user.familyId || (!j.familyId && user.familyId)) &&
+          (j.privacy === 'share_parent' ||
+            j.privacy === 'share_all' ||
+            (j.privacy as any) === 'parents_only' ||
+            (j.privacy as any) === 'family_open')
       );
     }
+    // 3. Psychologist: ONLY sees journals explicitly shared with psychologist or attached to active consultations
     if (user.role === 'psychologist') {
       const consultationJournalIds = consultations
         .filter((c) => c.psychologistId === user.id || !c.psychologistId)
@@ -1385,16 +1396,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       return journalEntries.filter(
         (j) =>
-          j.privacy === 'psychologist_only' ||
-          j.privacy === 'family_open' ||
-          (j.privacy as any) === 'share_psychologist' ||
-          (j.privacy as any) === 'share_all' ||
+          j.privacy === 'share_psychologist' ||
+          j.privacy === 'share_all' ||
+          (j.privacy as any) === 'psychologist_only' ||
           consultationJournalIds.includes(j.id)
       );
     }
+    // 4. Admin: Zero-Trust Privacy - Admin CANNOT view private psychological journals of users
     if (user.role === 'admin') {
-      return journalEntries;
+      return [];
     }
+    return [];
+  };
+
+  // RBAC for Consultations: Strict confidentiality between Student and Psychologist
+  const getFilteredConsultationsForUser = (user: User): ConsultationSession[] => {
+    if (!isAuthenticated) {
+      return [];
+    }
+    // 1. Student: ONLY sees consultations they requested
+    if (user.role === 'student') {
+      return consultations.filter((c) => c.studentId === user.id);
+    }
+    // 2. Psychologist: Sees consultations assigned to them or unassigned waiting for intake
+    if (user.role === 'psychologist') {
+      return consultations.filter((c) => c.psychologistId === user.id || !c.psychologistId);
+    }
+    // 3. Parent & Admin: Zero access to confidential student-psychologist consultation sessions
     return [];
   };
 
@@ -1606,6 +1634,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         adminAddChallengeTask,
         adminAddDeepTalkTopic,
         getFilteredJournalsForUser,
+        getFilteredConsultationsForUser,
         getFullDatabaseSnapshot,
         restoreFullDatabase,
         resetToInitialData,

@@ -294,86 +294,95 @@ export const AuthModal: React.FC = () => {
                 </button>
               </form>
 
-              {/* Quick Demo Login Cards */}
+              {/* Quick Demo Login Section with Tabs / Grid */}
               <div className="pt-4 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    Đăng nhập nhanh theo vai trò (Demo):
+                    Đăng nhập nhanh tài khoản mẫu (Demo):
+                  </span>
+                  <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full font-bold">
+                    14 Tài khoản
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('minhanh.nguyen@student.edu.vn')}
-                    className="flex items-center p-2.5 text-left bg-indigo-50/70 hover:bg-indigo-100 border border-indigo-100 rounded-xl transition-all group"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-xs mr-2.5 flex-shrink-0">
-                      MA
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-700">
-                        Minh Anh
-                      </p>
-                      <span className="inline-block text-[10px] text-indigo-600 font-medium">
-                        🎓 Học sinh (Con)
-                      </span>
-                    </div>
-                  </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('huong.tran@family.vn')}
-                    className="flex items-center p-2.5 text-left bg-pink-50/70 hover:bg-pink-100 border border-pink-100 rounded-xl transition-all group"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-pink-500 text-white flex items-center justify-center font-bold text-xs mr-2.5 flex-shrink-0">
-                      TH
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {/* Students Section */}
+                  <div>
+                    <p className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <GraduationCap className="w-3 h-3" /> 5 Học sinh
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {users.filter(u => u.role === 'student').map(u => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => handleQuickLogin(u.email)}
+                          className="flex items-center p-1.5 text-left bg-indigo-50/60 hover:bg-indigo-100 border border-indigo-100/80 rounded-lg transition-all group"
+                        >
+                          <img src={u.avatar} alt={u.name} className="w-6 h-6 rounded-full object-cover mr-1.5 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-indigo-700">{u.name}</p>
+                            <span className="block text-[9px] text-indigo-600 truncate">{u.grade?.split('–')[0] || 'Học sinh'}</span>
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-800 truncate group-hover:text-pink-700">
-                        Thu Hương
-                      </p>
-                      <span className="inline-block text-[10px] text-pink-600 font-medium">
-                        👩 Phụ huynh (Mẹ)
-                      </span>
-                    </div>
-                  </button>
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('long.psychology@codegenz.vn')}
-                    className="flex items-center p-2.5 text-left bg-emerald-50/70 hover:bg-emerald-100 border border-emerald-100 rounded-xl transition-all group"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs mr-2.5 flex-shrink-0">
-                      HL
+                  {/* Parents Section */}
+                  <div>
+                    <p className="text-[10px] font-extrabold text-pink-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Users className="w-3 h-3" /> 5 Phụ huynh
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {users.filter(u => u.role === 'parent').map(u => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => handleQuickLogin(u.email)}
+                          className="flex items-center p-1.5 text-left bg-pink-50/60 hover:bg-pink-100 border border-pink-100/80 rounded-lg transition-all group"
+                        >
+                          <img src={u.avatar} alt={u.name} className="w-6 h-6 rounded-full object-cover mr-1.5 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-pink-700">{u.name.split('(')[0]}</p>
+                            <span className="block text-[9px] text-pink-600 truncate">{u.familyRole === 'father' ? '👨 Bố' : '👩 Mẹ'}</span>
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-800 truncate group-hover:text-emerald-700">
-                        ThS. Hoàng Long
-                      </p>
-                      <span className="inline-block text-[10px] text-emerald-600 font-medium">
-                        🩺 Chuyên gia Tâm lý
-                      </span>
-                    </div>
-                  </button>
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('admin@codegenzfamily.vn', 'adminpassword123')}
-                    className="flex items-center p-2.5 text-left bg-purple-50/70 hover:bg-purple-100 border border-purple-100 rounded-xl transition-all group"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs mr-2.5 flex-shrink-0">
-                      AD
+                  {/* Psychologists & Admin Section */}
+                  <div>
+                    <p className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Stethoscope className="w-3 h-3" /> 3 Chuyên gia & Quản trị
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {users.filter(u => u.role === 'psychologist' || u.role === 'admin').map(u => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => handleQuickLogin(u.email, u.role === 'admin' ? 'adminpassword123' : 'password123')}
+                          className={`flex items-center p-1.5 text-left rounded-lg transition-all group border ${
+                            u.role === 'admin'
+                              ? 'bg-purple-50/70 hover:bg-purple-100 border-purple-100/80'
+                              : 'bg-emerald-50/60 hover:bg-emerald-100 border-emerald-100/80'
+                          }`}
+                        >
+                          <img src={u.avatar} alt={u.name} className="w-6 h-6 rounded-full object-cover mr-1.5 shrink-0" />
+                          <div className="min-w-0">
+                            <p className={`text-[11px] font-bold truncate ${u.role === 'admin' ? 'text-purple-900 group-hover:text-purple-700' : 'text-slate-800 group-hover:text-emerald-700'}`}>
+                              {u.name.replace('ThS. ', '').replace('TS. ', '')}
+                            </p>
+                            <span className={`block text-[9px] truncate ${u.role === 'admin' ? 'text-purple-600 font-bold' : 'text-emerald-600'}`}>
+                              {u.role === 'admin' ? '⚡ Quản trị' : '🩺 Chuyên gia'}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-800 truncate group-hover:text-purple-700">
-                        Admin Quản trị
-                      </p>
-                      <span className="inline-block text-[10px] text-purple-600 font-medium">
-                        ⚡ Quản trị & Phân quyền
-                      </span>
-                    </div>
-                  </button>
+                  </div>
                 </div>
               </div>
             </div>

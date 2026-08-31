@@ -143,7 +143,7 @@ export const Header: React.FC<HeaderProps> = ({
           {isAuthenticated && currentUser.role === 'psychologist' && (
             <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50 border border-teal-200 text-teal-900 text-xs font-semibold shadow-2xs">
               <Stethoscope className="w-4 h-4 text-teal-600 shrink-0" />
-              <span className="font-bold text-teal-900">Chuyên Gia Tâm Lý Học Đường</span>
+              <span className="font-bold text-teal-900">Chuyên gia tâm lý học đường</span>
               <span className="text-[10px] bg-teal-200/70 text-teal-950 font-bold px-2 py-0.5 rounded-full">
                 Tham vấn & Bảo mật
               </span>
@@ -154,7 +154,7 @@ export const Header: React.FC<HeaderProps> = ({
           {isAuthenticated && currentUser.role === 'admin' && (
             <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold shadow-2xs border border-slate-700">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="font-bold tracking-wide">Quản Trị Hệ Thống CODE</span>
+              <span className="font-bold tracking-wide">Quản trị hệ thống CODE</span>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
                 Toàn quyền
               </span>
@@ -206,7 +206,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onOpenPrivacy}
               className="p-2 rounded-full text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors border border-transparent hover:border-indigo-100"
-              title="Trung tâm Bảo mật & Phân quyền riêng tư CODE"
+              title="Trung tâm bảo mật & phân quyền riêng tư CODE"
             >
               <ShieldCheck className="w-5 h-5 text-emerald-600" />
             </button>

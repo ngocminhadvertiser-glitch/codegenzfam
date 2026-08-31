@@ -121,7 +121,7 @@ export const EmotionJournalModal: React.FC<EmotionJournalModalProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xl">📖</span>
-              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">Nhật Ký Cảm Xúc Số</h2>
+              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">Nhật ký cảm xúc số</h2>
             </div>
             <p className="text-xs text-purple-100 mt-1 font-normal">
               Ghi lại cảm xúc chân thật, kiểm soát 100% quyền riêng tư và chia sẻ của bạn
@@ -279,7 +279,7 @@ export const EmotionJournalModal: React.FC<EmotionJournalModalProps> = ({
           {/* 5. Điều mình mong muốn người khác hiểu */}
           <div>
             <label className="block text-[10px] font-extrabold text-slate-600 uppercase tracking-widest mb-1.5 flex items-center justify-between">
-              <span>5. Điều bạn mong muốn người khác (Bố mẹ/Chuyên gia) hiểu về bạn?</span>
+              <span>5. Điều bạn mong muốn người khác (bố mẹ/chuyên gia) hiểu về bạn?</span>
               <span className="text-[10px] text-purple-700 font-extrabold bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">Rất quan trọng</span>
             </label>
             <textarea
@@ -294,7 +294,7 @@ export const EmotionJournalModal: React.FC<EmotionJournalModalProps> = ({
           {/* 6. Ghi chú cá nhân */}
           <div>
             <label className="block text-[10px] font-extrabold text-slate-600 uppercase tracking-widest mb-1.5">
-              6. Ghi chú cá nhân (Nhắc nhở bản thân):
+              6. Ghi chú cá nhân (nhắc nhở bản thân):
             </label>
             <input
               type="text"
@@ -309,7 +309,7 @@ export const EmotionJournalModal: React.FC<EmotionJournalModalProps> = ({
           <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-xs">
             <div className="flex items-center gap-1.5 mb-1.5">
               <label className="text-[10px] font-extrabold text-slate-800 uppercase tracking-widest">
-                7. Quyền riêng tư & Đối tượng chia sẻ:
+                7. Quyền riêng tư & đối tượng chia sẻ:
               </label>
             </div>
             <p className="text-xs text-slate-500 mb-3.5 leading-relaxed">
@@ -361,7 +361,7 @@ export const EmotionJournalModal: React.FC<EmotionJournalModalProps> = ({
                 <div>
                   <div className="flex items-center gap-1.5 text-xs font-bold text-pink-700">
                     <Users className="w-3.5 h-3.5 text-pink-600" />
-                    Chia sẻ với Cha Mẹ
+                    Chia sẻ với cha mẹ
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
                     Cha mẹ có thể đọc để thấu hiểu và gửi phản hồi khích lệ.
@@ -387,7 +387,7 @@ export const EmotionJournalModal: React.FC<EmotionJournalModalProps> = ({
                 <div>
                   <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-700">
                     <Stethoscope className="w-3.5 h-3.5 text-indigo-600" />
-                    Chia sẻ với Chuyên gia Tâm lý
+                    Chia sẻ với chuyên gia tâm lý
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
                     Dành cho các phiên tham vấn chuyên sâu có định hướng.
@@ -413,7 +413,7 @@ export const EmotionJournalModal: React.FC<EmotionJournalModalProps> = ({
                 <div>
                   <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800">
                     <Globe2 className="w-3.5 h-3.5 text-purple-600" />
-                    Chia sẻ cả Cha Mẹ & Chuyên gia
+                    Chia sẻ cả cha mẹ & chuyên gia
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
                     Kết nối trọn vẹn tam giác: Học sinh - Cha mẹ - Chuyên gia.
@@ -434,10 +434,10 @@ export const EmotionJournalModal: React.FC<EmotionJournalModalProps> = ({
             />
             <label htmlFor="wantConsultation" className="text-xs cursor-pointer">
               <span className="font-bold text-indigo-900 block">
-                Tôi muốn được Chuyên gia Tâm lý hỗ trợ về nội dung này
+                Tôi muốn được chuyên gia tâm lý hỗ trợ về nội dung này
               </span>
               <span className="text-slate-600 text-[11px]">
-                Hệ thống sẽ chuyển tiếp nhật ký này sang quy trình mở phiên tham vấn cùng Chuyên gia sau khi lưu.
+                Hệ thống sẽ chuyển tiếp nhật ký này sang quy trình mở phiên tham vấn cùng chuyên gia sau khi lưu.
               </span>
             </label>
           </div>

@@ -31,7 +31,7 @@ export const RoleBanner: React.FC<RoleBannerProps> = ({
         title: 'Chào mừng bạn đến với CODE GenZ 🌟',
         subtitle: 'Nền tảng hỗ trợ sức khỏe tinh thần & nhật ký cảm xúc bảo mật, kết nối thấu cảm giữa học sinh THPT, cha mẹ và chuyên gia tâm lý học đường.',
         themeClass: 'bg-gradient-to-r from-[#1E1B4B] via-[#4338CA] to-[#831843] text-white',
-        badgeText: 'Khám phá Nền tảng C-O-D-E',
+        badgeText: 'Khám phá nền tảng C-O-D-E',
         badgeColor: 'bg-white/20 text-amber-200 border border-white/25',
         accentBtnClass: 'bg-gradient-to-r from-[#6366F1] via-[#8B5CF6] to-[#EC4899] hover:from-[#4F46E5] text-white shadow-purple-600/30',
       };
@@ -61,16 +61,16 @@ export const RoleBanner: React.FC<RoleBannerProps> = ({
           title: `Kính chào ${currentUser.name} 🩺`,
           subtitle: 'Lớp hỗ trợ chuyên môn: Tiếp nhận tham vấn phân quyền, tương tác định hướng và ghi chép hồ sơ lâm sàng bảo mật.',
           themeClass: 'bg-gradient-to-r from-[#082F49] via-[#1E1B4B] to-[#4C1D95] text-white',
-          badgeText: 'Chuyên gia Tâm lý Học đường',
+          badgeText: 'Chuyên gia tâm lý học đường',
           badgeColor: 'bg-white/15 text-cyan-200 border border-white/20',
           accentBtnClass: 'bg-gradient-to-r from-[#0284C7] via-[#6366F1] to-[#A855F7] hover:from-[#0369A1] text-white shadow-sky-600/30',
         };
       case 'admin':
         return {
-          title: 'Trung tâm Quản trị CODE GenZ ⚙️',
+          title: 'Trung tâm quản trị CODE GenZ ⚙️',
           subtitle: 'Quản trị phân quyền người dùng, ngân hàng câu hỏi Deep Talk & Thử thách, giám sát audit log toàn hệ thống.',
           themeClass: 'bg-gradient-to-r from-[#2E1065] via-[#1E1B4B] to-[#581C87] text-white',
-          badgeText: 'Quản trị viên Hệ thống',
+          badgeText: 'Quản trị viên hệ thống',
           badgeColor: 'bg-white/15 text-purple-200 border border-white/20',
           accentBtnClass: 'bg-gradient-to-r from-[#6366F1] via-[#8B5CF6] to-[#EC4899] hover:from-[#4F46E5] text-white shadow-purple-600/30',
         };
@@ -79,23 +79,60 @@ export const RoleBanner: React.FC<RoleBannerProps> = ({
 
   const info = getRoleHeaderInfo();
 
-  const navItems = [
-    { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
-    {
-      id: 'journal',
-      label: currentUser.role === 'parent' ? 'Nhật ký con chia sẻ' : currentUser.role === 'psychologist' ? 'Nhật ký phân quyền' : 'Nhật ký cảm xúc',
-      icon: BookOpen,
-    },
-    {
-      id: 'consultation',
-      label: currentUser.role === 'psychologist' ? 'Hồ sơ tham vấn' : 'Tham vấn Chuyên gia',
-      icon: MessageCircleQuestion,
-    },
-    { id: 'deeptalk', label: 'Deep Talk Gia đình', icon: HeartHandshake },
-    { id: 'challenge', label: 'Thử thách 30 ngày', icon: CalendarCheck2 },
-    { id: 'ai_coach', label: 'Trợ lý AI CODE', icon: Sparkles },
-    ...(currentUser.role === 'admin' ? [{ id: 'admin', label: 'Quản trị hệ thống', icon: ShieldAlert }] : []),
-  ];
+  const getNavItems = () => {
+    if (!isAuthenticated) {
+      return [
+        { id: 'dashboard', label: 'Tổng quan nền tảng', icon: LayoutDashboard },
+        { id: 'journal', label: 'Nhật ký C-O-D-E', icon: BookOpen },
+        { id: 'ai_coach', label: 'Trợ lý AI CODE', icon: Sparkles },
+      ];
+    }
+
+    switch (currentUser.role) {
+      case 'student':
+        return [
+          { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
+          { id: 'journal', label: 'Nhật ký cảm xúc', icon: BookOpen },
+          { id: 'consultation', label: 'Tham vấn chuyên gia', icon: MessageCircleQuestion },
+          { id: 'deeptalk', label: 'Deep Talk gia đình', icon: HeartHandshake },
+          { id: 'challenge', label: 'Thử thách 30 ngày', icon: CalendarCheck2 },
+          { id: 'ai_coach', label: 'Trợ lý AI CODE', icon: Sparkles },
+        ];
+
+      case 'parent':
+        return [
+          { id: 'dashboard', label: 'Tổng quan gia đình', icon: LayoutDashboard },
+          { id: 'journal', label: 'Nhật ký con chia sẻ', icon: BookOpen },
+          { id: 'deeptalk', label: 'Deep Talk gia đình', icon: HeartHandshake },
+          { id: 'challenge', label: 'Thử thách 30 ngày', icon: CalendarCheck2 },
+          { id: 'ai_coach', label: 'Trợ lý AI CODE', icon: Sparkles },
+        ];
+
+      case 'psychologist':
+        return [
+          { id: 'dashboard', label: 'Tổng quan chuyên gia', icon: LayoutDashboard },
+          { id: 'consultation', label: 'Hàng đợi & tham vấn học sinh', icon: MessageCircleQuestion },
+          { id: 'journal', label: 'Nhật ký học sinh ủy quyền', icon: BookOpen },
+          { id: 'ai_coach', label: 'Trợ lý AI chuyên gia', icon: Sparkles },
+        ];
+
+      case 'admin':
+        return [
+          { id: 'admin', label: 'Quản trị hệ thống & phân quyền', icon: ShieldAlert },
+          { id: 'dashboard', label: 'Tổng quan hệ thống', icon: LayoutDashboard },
+          { id: 'ai_coach', label: 'Trợ lý AI quản trị', icon: Sparkles },
+        ];
+
+      default:
+        return [
+          { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
+          { id: 'journal', label: 'Nhật ký', icon: BookOpen },
+          { id: 'ai_coach', label: 'Trợ lý AI', icon: Sparkles },
+        ];
+    }
+  };
+
+  const navItems = getNavItems();
 
   return (
     <div className="w-full mb-6 sm:mb-8">
@@ -222,6 +259,14 @@ export const RoleBanner: React.FC<RoleBannerProps> = ({
               >
                 <MessageCircleQuestion className="w-4 h-4" />
                 Xem hàng đợi tham vấn
+              </button>
+            ) : currentUser.role === 'admin' ? (
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`px-5 py-2.5 ${info.accentBtnClass} active:scale-95 text-xs font-extrabold uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2`}
+              >
+                <ShieldAlert className="w-4 h-4" />
+                Quản trị hệ thống & RBAC
               </button>
             ) : null}
           </div>
