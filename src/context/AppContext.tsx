@@ -40,6 +40,13 @@ import {
   exportToJson,
   exportToSqlDump,
 } from '../services/dataStorageService';
+import {
+  bootstrapCloudFirestore,
+  subscribeToCloudChanges,
+  saveCloudDocument,
+  deleteCloudDocument,
+} from '../services/cloudDatabaseService';
+import { COLLECTIONS } from '../services/firebaseClient';
 
 interface AppContextType {
   currentUser: User;
@@ -314,8 +321,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const currentUser = users.find((u) => u.id === currentUserId) || users[0];
 
-  // 1. Initial Load from SQLite Backend
+  // 1. Initial Load & Synchronization from Cloud Database (Firestore) + SQLite Fallback
   const reloadFromSqlite = useCallback(async () => {
+    try {
+      // First attempt: Load directly from Cloud Database (Firestore) - guaranteed to work across all devices on Vercel
+      const cloudData = await bootstrapCloudFirestore();
+      if (cloudData) {
+        if (cloudData.users && cloudData.users.length > 0) setUsers(cloudData.users);
+        if (cloudData.families && cloudData.families.length > 0) setFamilies(cloudData.families);
+        if (cloudData.familyInvitations) setFamilyInvitations(cloudData.familyInvitations);
+        if (cloudData.family) setFamily(cloudData.family);
+        if (cloudData.journalEntries) setJournalEntries(cloudData.journalEntries);
+        if (cloudData.consultations) setConsultations(cloudData.consultations);
+        if (cloudData.deepTalkTopics) setDeepTalkTopics(cloudData.deepTalkTopics);
+        if (cloudData.deepTalkSessions) setDeepTalkSessions(cloudData.deepTalkSessions);
+        if (cloudData.challengeTasks) setChallengeTasks(cloudData.challengeTasks);
+        if (cloudData.challengeProgress) setChallengeProgress(cloudData.challengeProgress);
+        if (cloudData.happinessHistory) setHappinessHistory(cloudData.happinessHistory);
+        if (cloudData.notifications) setNotifications(cloudData.notifications);
+        if (cloudData.auditLogs) setAuditLogs(cloudData.auditLogs);
+        setSqliteConnected(true);
+        console.log('[App] Successfully loaded all centralized data from Cloud Database (Firestore)!');
+        return;
+      }
+    } catch (cloudErr) {
+      console.warn('[App] Cloud Firestore load warning, falling back to local backend:', cloudErr);
+    }
+
     try {
       const res = await fetch('/api/db/bootstrap');
       const isJson = res.headers.get('content-type')?.includes('application/json');
@@ -354,6 +386,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     reloadFromSqlite();
+
+    // Subscribe to realtime multi-device sync
+    const unsubscribe = subscribeToCloudChanges({
+      onUsersChange: (newUsers) => {
+        if (newUsers && newUsers.length > 0) {
+          setUsers(newUsers);
+        }
+      },
+      onFamiliesChange: (newFamilies) => {
+        if (newFamilies && newFamilies.length > 0) {
+          setFamilies(newFamilies);
+        }
+      },
+      onJournalsChange: (newJournals) => {
+        if (newJournals) {
+          setJournalEntries(newJournals);
+        }
+      },
+      onConsultationsChange: (newConsultations) => {
+        if (newConsultations) {
+          setConsultations(newConsultations);
+        }
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [reloadFromSqlite]);
 
   // Keep active family synchronized with current active user (student/parent)
@@ -988,6 +1048,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ]);
       });
     }
+
+    // Persist to Cloud Firestore
+    saveCloudDocument(COLLECTIONS.JOURNAL_ENTRIES, newId, newEntry).catch(() => {});
 
     // Persist to SQLite DB
     fetch('/api/db/journals', {

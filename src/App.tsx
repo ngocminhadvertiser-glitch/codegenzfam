@@ -91,6 +91,18 @@ const MainApp: React.FC = () => {
         return null;
 
       case 'journal':
+        // Only student, parent, psychologist can view journals according to their permission
+        if (currentUser.role === 'admin') {
+          return (
+            <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center max-w-xl mx-auto space-y-3">
+              <ShieldCheck className="w-10 h-10 text-slate-400 mx-auto" />
+              <h3 className="text-base font-bold text-slate-800">Quyền riêng tư được bảo vệ</h3>
+              <p className="text-xs text-slate-500">
+                Tài khoản Quản trị viên không có quyền truy cập trực tiếp nội dung nhật ký cảm xúc cá nhân của học sinh và cha mẹ.
+              </p>
+            </div>
+          );
+        }
         return (
           <EmotionJournalList
             onOpenNewJournal={() => setIsJournalModalOpen(true)}
@@ -99,6 +111,29 @@ const MainApp: React.FC = () => {
         );
 
       case 'consultation':
+        // Only student and psychologist have direct consultation workflow
+        if (currentUser.role === 'parent') {
+          return (
+            <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center max-w-xl mx-auto space-y-3">
+              <ShieldCheck className="w-10 h-10 text-indigo-400 mx-auto" />
+              <h3 className="text-base font-bold text-slate-800">Bảo mật Tham vấn Học đường</h3>
+              <p className="text-xs text-slate-500">
+                Kênh tham vấn tâm lý là không gian bảo mật giữa Học sinh và Chuyên gia tâm lý học đường.
+              </p>
+            </div>
+          );
+        }
+        if (currentUser.role === 'admin') {
+          return (
+            <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center max-w-xl mx-auto space-y-3">
+              <ShieldCheck className="w-10 h-10 text-slate-400 mx-auto" />
+              <h3 className="text-base font-bold text-slate-800">Bảo mật Tham vấn</h3>
+              <p className="text-xs text-slate-500">
+                Nội dung tham vấn tâm lý được bảo vệ bảo mật theo quy định đạo đức nghề nghiệp tâm lý.
+              </p>
+            </div>
+          );
+        }
         return (
           <ConsultationModule
             onOpenNewConsultation={() => handleOpenNewConsultation()}
@@ -114,6 +149,20 @@ const MainApp: React.FC = () => {
 
       case 'challenge':
         return <ThirtyDayChallengeModule />;
+
+      case 'admin':
+        if (currentUser.role !== 'admin') {
+          return (
+            <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center max-w-xl mx-auto space-y-3">
+              <ShieldCheck className="w-10 h-10 text-rose-500 mx-auto" />
+              <h3 className="text-base font-bold text-slate-800">Khu vực hạn chế truy cập</h3>
+              <p className="text-xs text-slate-500">
+                Bạn không có quyền Quản trị viên để truy cập tính năng này.
+              </p>
+            </div>
+          );
+        }
+        return <AdminDashboard onOpenDataManagement={() => setIsDataManagementOpen(true)} />;
 
       case 'ai_coach':
         return (
