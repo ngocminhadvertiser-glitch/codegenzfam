@@ -305,7 +305,7 @@ export const INITIAL_USERS: User[] = [
     id: 'user-admin-1',
     name: 'Admin CODE Hệ Thống',
     email: 'admin@codegenzfamily.vn',
-    password: 'adminpassword123',
+    password: 'password123',
     role: 'admin',
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     bio: 'Quản trị viên nền tảng CODE GenZ Family – Giám sát bảo mật, phân quyền RBAC và hệ thống.',

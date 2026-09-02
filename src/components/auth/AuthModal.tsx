@@ -363,7 +363,7 @@ export const AuthModal: React.FC = () => {
                         <button
                           key={u.id}
                           type="button"
-                          onClick={() => handleQuickLogin(u.email, u.role === 'admin' ? 'adminpassword123' : 'password123')}
+                          onClick={() => handleQuickLogin(u.email, 'password123')}
                           className={`flex items-center p-1.5 text-left rounded-lg transition-all group border ${
                             u.role === 'admin'
                               ? 'bg-purple-50/70 hover:bg-purple-100 border-purple-100/80'
