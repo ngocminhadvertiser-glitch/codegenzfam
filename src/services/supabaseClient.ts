@@ -667,23 +667,47 @@ export function subscribeToSupabaseChanges(callbacks: {
 }
 
 // ============================================================
+// ============================================================
 // DIRECT CRUD HELPERS FOR SUPABASE (Used by AppContext)
 // ============================================================
 
-export async function saveUserToSupabase(user: User): Promise<boolean> {
+export async function resilientSupabaseUpsert(
+  table: string,
+  payload: Record<string, any>,
+  onConflict: string = 'id'
+): Promise<boolean> {
   try {
     const client = getSupabase();
-    const row = mapUserToDb(user);
-    const { error } = await client.from('users').upsert(row, { onConflict: 'id' });
-    if (error) {
-      console.warn('[Supabase saveUser]:', error.message);
-      return false;
+    let currentPayload = { ...payload };
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const { error } = await client.from(table).upsert(currentPayload, { onConflict });
+      if (!error) {
+        return true;
+      }
+
+      // Check if the error is due to an unrecognized column in schema
+      const m1 = error.message.match(/Could not find the ['"](\w+)['"] column/i);
+      const m2 = error.message.match(/column ['"]?(\w+)['"]? does not exist/i);
+      const colName = (m1 && m1[1]) || (m2 && m2[1]);
+
+      if (colName && colName in currentPayload) {
+        console.warn(`[Supabase auto-prune] Table ${table} does not have column '${colName}', removing and retrying...`);
+        delete currentPayload[colName];
+      } else {
+        console.warn(`[Supabase upsert error on ${table}]:`, error.message);
+        return false;
+      }
     }
-    return true;
+    return false;
   } catch (err) {
-    console.warn('[Supabase saveUser catch]:', err);
+    console.warn(`[Supabase catch error on ${table}]:`, err);
     return false;
   }
+}
+
+export async function saveUserToSupabase(user: User): Promise<boolean> {
+  const row = mapUserToDb(user);
+  return resilientSupabaseUpsert('users', row, 'id');
 }
 
 export async function deleteUserFromSupabase(userId: string): Promise<boolean> {
@@ -697,14 +721,8 @@ export async function deleteUserFromSupabase(userId: string): Promise<boolean> {
 }
 
 export async function saveFamilyToSupabase(family: Family): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapFamilyToDb(family);
-    const { error } = await client.from('families').upsert(row, { onConflict: 'id' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapFamilyToDb(family);
+  return resilientSupabaseUpsert('families', row, 'id');
 }
 
 export async function deleteFamilyFromSupabase(familyId: string): Promise<boolean> {
@@ -718,25 +736,13 @@ export async function deleteFamilyFromSupabase(familyId: string): Promise<boolea
 }
 
 export async function saveInvitationToSupabase(inv: FamilyInvitation): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapInvitationToDb(inv);
-    const { error } = await client.from('family_invitations').upsert(row, { onConflict: 'id' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapInvitationToDb(inv);
+  return resilientSupabaseUpsert('family_invitations', row, 'id');
 }
 
 export async function saveJournalToSupabase(journal: EmotionJournalEntry): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapJournalToDb(journal);
-    const { error } = await client.from('emotion_journals').upsert(row, { onConflict: 'id' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapJournalToDb(journal);
+  return resilientSupabaseUpsert('emotion_journals', row, 'id');
 }
 
 export async function deleteJournalFromSupabase(journalId: string): Promise<boolean> {
@@ -750,14 +756,8 @@ export async function deleteJournalFromSupabase(journalId: string): Promise<bool
 }
 
 export async function saveFamilyJournalToSupabase(journal: FamilyJournalEntry): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapFamilyJournalToDb(journal);
-    const { error } = await client.from('family_journals').upsert(row, { onConflict: 'id' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapFamilyJournalToDb(journal);
+  return resilientSupabaseUpsert('family_journals', row, 'id');
 }
 
 export async function deleteFamilyJournalFromSupabase(journalId: string): Promise<boolean> {
@@ -771,91 +771,43 @@ export async function deleteFamilyJournalFromSupabase(journalId: string): Promis
 }
 
 export async function saveConsultationToSupabase(consultation: ConsultationSession): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapConsultationToDb(consultation);
-    const { error } = await client.from('consultation_sessions').upsert(row, { onConflict: 'id' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapConsultationToDb(consultation);
+  return resilientSupabaseUpsert('consultation_sessions', row, 'id');
 }
 
 export async function saveDeepTalkTopicToSupabase(topic: DeepTalkTopic): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapTopicToDb(topic);
-    const { error } = await client.from('deep_talk_topics').upsert(row, { onConflict: 'id' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapTopicToDb(topic);
+  return resilientSupabaseUpsert('deep_talk_topics', row, 'id');
 }
 
 export async function saveDeepTalkSessionToSupabase(session: DeepTalkSession): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapDeepTalkSessionToDb(session);
-    const { error } = await client.from('deep_talk_sessions').upsert(row, { onConflict: 'id' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapDeepTalkSessionToDb(session);
+  return resilientSupabaseUpsert('deep_talk_sessions', row, 'id');
 }
 
 export async function saveChallengeTaskToSupabase(task: Challenge30DayTask): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapChallengeTaskToDb(task);
-    const { error } = await client.from('challenge_tasks').upsert(row, { onConflict: 'day' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapChallengeTaskToDb(task);
+  return resilientSupabaseUpsert('challenge_tasks', row, 'day');
 }
 
 export async function saveChallengeProgressToSupabase(progress: ChallengeDayProgress): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapChallengeProgressToDb(progress);
-    const { error } = await client.from('challenge_progress').upsert(row, { onConflict: 'day' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapChallengeProgressToDb(progress);
+  return resilientSupabaseUpsert('challenge_progress', row, 'day');
 }
 
 export async function addHappinessRecordToSupabase(record: HappinessPointRecord): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapHappinessToDb(record);
-    const { error } = await client.from('happiness_history').upsert(row, { onConflict: 'id' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapHappinessToDb(record);
+  return resilientSupabaseUpsert('happiness_history', row, 'id');
 }
 
 export async function addNotificationToSupabase(notification: NotificationItem): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapNotificationToDb(notification);
-    const { error } = await client.from('notifications').upsert(row, { onConflict: 'id' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapNotificationToDb(notification);
+  return resilientSupabaseUpsert('notifications', row, 'id');
 }
 
 export async function addAuditLogToSupabase(log: SecurityAuditLog): Promise<boolean> {
-  try {
-    const client = getSupabase();
-    const row = mapAuditLogToDb(log);
-    const { error } = await client.from('security_audit_logs').upsert(row, { onConflict: 'id' });
-    return !error;
-  } catch (err) {
-    return false;
-  }
+  const row = mapAuditLogToDb(log);
+  return resilientSupabaseUpsert('security_audit_logs', row, 'id');
 }
 
 // ============================================================

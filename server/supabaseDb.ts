@@ -933,14 +933,44 @@ export async function fetchUsersFromSupabase(): Promise<User[] | null> {
   return data.map(mapUserFromSupabase);
 }
 
-export async function upsertUserInSupabase(user: User): Promise<void> {
+// Resilient Server-Side Upsert helper with auto column stripping for schema compatibility
+export async function resilientServerUpsert(
+  table: string,
+  payload: Record<string, any>,
+  onConflict: string = "id"
+): Promise<boolean> {
   const client = getSupabaseClient();
-  if (!client) return;
+  if (!client) return false;
+  let currentPayload = { ...payload };
   try {
-    await client.from("users").upsert(mapUserToSupabase(user));
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const { error } = await client.from(table).upsert(currentPayload, { onConflict });
+      if (!error) {
+        return true;
+      }
+
+      // Check if error is due to an unrecognized column in schema
+      const m1 = error.message.match(/Could not find the ['"](\w+)['"] column/i);
+      const m2 = error.message.match(/column ['"]?(\w+)['"]? does not exist/i);
+      const colName = (m1 && m1[1]) || (m2 && m2[1]);
+
+      if (colName && colName in currentPayload) {
+        console.warn(`[Supabase Server auto-prune] Table ${table} does not have column '${colName}', removing and retrying...`);
+        delete currentPayload[colName];
+      } else {
+        console.warn(`[Supabase Server upsert error on ${table}]:`, error.message);
+        return false;
+      }
+    }
+    return false;
   } catch (err) {
-    console.warn("[Supabase] upsertUser error:", err);
+    console.warn(`[Supabase Server catch error on ${table}]:`, err);
+    return false;
   }
+}
+
+export async function upsertUserInSupabase(user: User): Promise<void> {
+  await resilientServerUpsert("users", mapUserToSupabase(user), "id");
 }
 
 export async function deleteUserInSupabase(userId: string): Promise<void> {
@@ -954,13 +984,7 @@ export async function deleteUserInSupabase(userId: string): Promise<void> {
 }
 
 export async function upsertFamilyInSupabase(family: Family): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    await client.from("families").upsert(mapFamilyToSupabase(family));
-  } catch (err) {
-    console.warn("[Supabase] upsertFamily error:", err);
-  }
+  await resilientServerUpsert("families", mapFamilyToSupabase(family), "id");
 }
 
 export async function deleteFamilyInSupabase(familyId: string): Promise<void> {
@@ -974,13 +998,7 @@ export async function deleteFamilyInSupabase(familyId: string): Promise<void> {
 }
 
 export async function upsertJournalInSupabase(entry: EmotionJournalEntry): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    await client.from("emotion_journals").upsert(mapJournalToSupabase(entry));
-  } catch (err) {
-    console.warn("[Supabase] upsertJournal error:", err);
-  }
+  await resilientServerUpsert("emotion_journals", mapJournalToSupabase(entry), "id");
 }
 
 export async function deleteJournalInSupabase(journalId: string): Promise<void> {
@@ -994,13 +1012,7 @@ export async function deleteJournalInSupabase(journalId: string): Promise<void> 
 }
 
 export async function upsertFamilyJournalInSupabase(entry: FamilyJournalEntry): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    await client.from("family_journals").upsert(mapFamilyJournalToSupabase(entry));
-  } catch (err) {
-    console.warn("[Supabase] upsertFamilyJournal error:", err);
-  }
+  await resilientServerUpsert("family_journals", mapFamilyJournalToSupabase(entry), "id");
 }
 
 export async function deleteFamilyJournalInSupabase(entryId: string): Promise<void> {
@@ -1014,53 +1026,23 @@ export async function deleteFamilyJournalInSupabase(entryId: string): Promise<vo
 }
 
 export async function upsertConsultationInSupabase(consultation: ConsultationSession): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    await client.from("consultation_sessions").upsert(mapConsultationToSupabase(consultation));
-  } catch (err) {
-    console.warn("[Supabase] upsertConsultation error:", err);
-  }
+  await resilientServerUpsert("consultation_sessions", mapConsultationToSupabase(consultation), "id");
 }
 
 export async function upsertDeepTalkSessionInSupabase(session: DeepTalkSession): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    await client.from("deep_talk_sessions").upsert(mapDeepTalkSessionToSupabase(session));
-  } catch (err) {
-    console.warn("[Supabase] upsertDeepTalkSession error:", err);
-  }
+  await resilientServerUpsert("deep_talk_sessions", mapDeepTalkSessionToSupabase(session), "id");
 }
 
 export async function upsertChallengeProgressInSupabase(progress: ChallengeDayProgress): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    await client.from("challenge_progress").upsert(mapChallengeProgressToSupabase(progress));
-  } catch (err) {
-    console.warn("[Supabase] upsertChallengeProgress error:", err);
-  }
+  await resilientServerUpsert("challenge_progress", mapChallengeProgressToSupabase(progress), "day");
 }
 
 export async function addHappinessInSupabase(record: HappinessPointRecord): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    await client.from("happiness_history").upsert(mapHappinessToSupabase(record));
-  } catch (err) {
-    console.warn("[Supabase] addHappiness error:", err);
-  }
+  await resilientServerUpsert("happiness_history", mapHappinessToSupabase(record), "id");
 }
 
 export async function upsertInvitationInSupabase(inv: FamilyInvitation): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    await client.from("family_invitations").upsert(mapInvitationToSupabase(inv));
-  } catch (err) {
-    console.warn("[Supabase] upsertInvitation error:", err);
-  }
+  await resilientServerUpsert("family_invitations", mapInvitationToSupabase(inv), "id");
 }
 
 export async function deleteInvitationInSupabase(invId: string): Promise<void> {
@@ -1074,13 +1056,7 @@ export async function deleteInvitationInSupabase(invId: string): Promise<void> {
 }
 
 export async function upsertDeepTalkTopicInSupabase(t: DeepTalkTopic): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    await client.from("deep_talk_topics").upsert(mapDeepTalkTopicToSupabase(t));
-  } catch (err) {
-    console.warn("[Supabase] upsertDeepTalkTopic error:", err);
-  }
+  await resilientServerUpsert("deep_talk_topics", mapDeepTalkTopicToSupabase(t), "id");
 }
 
 export async function deleteDeepTalkTopicInSupabase(topicId: string): Promise<void> {
@@ -1094,13 +1070,7 @@ export async function deleteDeepTalkTopicInSupabase(topicId: string): Promise<vo
 }
 
 export async function upsertChallengeTaskInSupabase(task: Challenge30DayTask): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    await client.from("challenge_tasks").upsert(mapChallengeTaskToSupabase(task));
-  } catch (err) {
-    console.warn("[Supabase] upsertChallengeTask error:", err);
-  }
+  await resilientServerUpsert("challenge_tasks", mapChallengeTaskToSupabase(task), "day");
 }
 
 export async function deleteChallengeTaskInSupabase(day: number): Promise<void> {
@@ -1114,13 +1084,7 @@ export async function deleteChallengeTaskInSupabase(day: number): Promise<void> 
 }
 
 export async function addNotificationInSupabase(notification: NotificationItem): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    await client.from("notifications").upsert(mapNotificationToSupabase(notification));
-  } catch (err) {
-    console.warn("[Supabase] addNotification error:", err);
-  }
+  await resilientServerUpsert("notifications", mapNotificationToSupabase(notification), "id");
 }
 
 export async function markNotificationReadInSupabase(id: string): Promise<void> {
