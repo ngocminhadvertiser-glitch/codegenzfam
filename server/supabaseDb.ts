@@ -29,12 +29,21 @@ import {
 } from "../src/data/initialData";
 import { getFullSqliteSnapshot } from "./sqliteDb";
 
+export const DEFAULT_SUPABASE_URL = "https://tqnzlwkakeocxufznjfi.supabase.co";
+export const DEFAULT_SUPABASE_SERVICE_ROLE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxbnpsd2tha2VvY3h1ZnpuamZpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODMzMDYxNCwiZXhwIjoyMTAzOTA2NjE0fQ.5ZFIV7UgqZQRbw6olsm3NRh6jC4nx10kRcBzLSg-8xk";
+
 let supabaseClient: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient | null {
   if (supabaseClient) return supabaseClient;
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    DEFAULT_SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
     return null;
   }
@@ -53,7 +62,7 @@ export function getSupabaseClient(): SupabaseClient | null {
 }
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY));
+  return true;
 }
 
 export const SUPABASE_SCHEMA_SQL = `-- ============================================================
@@ -1044,6 +1053,66 @@ export async function addHappinessInSupabase(record: HappinessPointRecord): Prom
   }
 }
 
+export async function upsertInvitationInSupabase(inv: FamilyInvitation): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from("family_invitations").upsert(mapInvitationToSupabase(inv));
+  } catch (err) {
+    console.warn("[Supabase] upsertInvitation error:", err);
+  }
+}
+
+export async function deleteInvitationInSupabase(invId: string): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from("family_invitations").delete().eq("id", invId);
+  } catch (err) {
+    console.warn("[Supabase] deleteInvitation error:", err);
+  }
+}
+
+export async function upsertDeepTalkTopicInSupabase(t: DeepTalkTopic): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from("deep_talk_topics").upsert(mapDeepTalkTopicToSupabase(t));
+  } catch (err) {
+    console.warn("[Supabase] upsertDeepTalkTopic error:", err);
+  }
+}
+
+export async function deleteDeepTalkTopicInSupabase(topicId: string): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from("deep_talk_topics").delete().eq("id", topicId);
+  } catch (err) {
+    console.warn("[Supabase] deleteDeepTalkTopic error:", err);
+  }
+}
+
+export async function upsertChallengeTaskInSupabase(task: Challenge30DayTask): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from("challenge_tasks").upsert(mapChallengeTaskToSupabase(task));
+  } catch (err) {
+    console.warn("[Supabase] upsertChallengeTask error:", err);
+  }
+}
+
+export async function deleteChallengeTaskInSupabase(day: number): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from("challenge_tasks").delete().eq("day", day);
+  } catch (err) {
+    console.warn("[Supabase] deleteChallengeTask error:", err);
+  }
+}
+
 export async function addNotificationInSupabase(notification: NotificationItem): Promise<void> {
   const client = getSupabaseClient();
   if (!client) return;
@@ -1051,6 +1120,26 @@ export async function addNotificationInSupabase(notification: NotificationItem):
     await client.from("notifications").upsert(mapNotificationToSupabase(notification));
   } catch (err) {
     console.warn("[Supabase] addNotification error:", err);
+  }
+}
+
+export async function markNotificationReadInSupabase(id: string): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from("notifications").update({ is_read: true }).eq("id", id);
+  } catch (err) {
+    console.warn("[Supabase] markNotificationRead error:", err);
+  }
+}
+
+export async function markAllNotificationsReadInSupabase(userId: string): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    await client.from("notifications").update({ is_read: true }).eq("user_id", userId);
+  } catch (err) {
+    console.warn("[Supabase] markAllNotificationsRead error:", err);
   }
 }
 

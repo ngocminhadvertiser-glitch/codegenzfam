@@ -592,6 +592,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('codegenz_auth_logged_in', 'true');
     } catch {}
 
+    saveUserToSupabase(updatedUser).catch(() => {});
+
     if (updatedUser.role === 'student' || updatedUser.role === 'parent') {
       const userFam = families.find(
         (f) =>
@@ -641,7 +643,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (isJson) {
         const data = await res.json();
         if (res.ok && data.success && data.user) {
-          const registeredUser: User = data.user;
+          const registeredUser: User = {
+            ...data.user,
+            password: payload.password || data.user.password || 'password123',
+          };
           setUsers((prev) => [registeredUser, ...prev.filter((u) => u.id !== registeredUser.id)]);
           setCurrentUserId(registeredUser.id);
           setIsAuthenticated(true);
@@ -649,6 +654,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             localStorage.setItem('codegenz_current_user_id', registeredUser.id);
             localStorage.setItem('codegenz_auth_logged_in', 'true');
           } catch {}
+
+          // Ensure directly persisted to Supabase
+          try {
+            await saveUserToSupabase(registeredUser);
+            if (registeredUser.familyId) {
+              const matchedFam = families.find((f) => f.id === registeredUser.familyId);
+              if (matchedFam) {
+                await saveFamilyToSupabase(matchedFam);
+              }
+            }
+          } catch (syncErr) {
+            console.warn('[Supabase Sync User error]:', syncErr);
+          }
 
           setAuthModalOpen(false);
           triggerCelebration();
@@ -695,25 +713,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newUserId = `user-${role}-${Date.now().toString(36)}`;
     let targetFamilyId: string | undefined = undefined;
+    let newlyCreatedFamily: Family | undefined = undefined;
 
     if (role === 'student') {
       if (familyCode && familyCode.trim()) {
         const matched = families.find((f) => f.familyCode.toUpperCase() === familyCode.trim().toUpperCase());
         if (matched) {
           targetFamilyId = matched.id;
+          const updatedFam = { ...matched, studentIds: Array.from(new Set([...matched.studentIds, newUserId])) };
           setFamilies((prev) =>
-            prev.map((f) =>
-              f.id === matched.id
-                ? { ...f, studentIds: Array.from(new Set([...f.studentIds, newUserId])) }
-                : f
-            )
+            prev.map((f) => (f.id === matched.id ? updatedFam : f))
           );
+          saveFamilyToSupabase(updatedFam).catch(() => {});
         }
       }
       if (!targetFamilyId) {
         const newFamId = `family-${Date.now()}`;
         const newFamCode = `CODE-${Math.floor(1000 + Math.random() * 9000)}`;
-        const newFam: Family = {
+        newlyCreatedFamily = {
           id: newFamId,
           name: `Tổ Ấm ${name.trim()}`,
           familyCode: newFamCode,
@@ -725,23 +742,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           avatarIcon: '🏡',
           description: `Tổ ấm gia đình của ${name.trim()} – nơi lắng nghe và gắn kết yêu thương.`,
         };
-        setFamilies((prev) => [newFam, ...prev]);
-        setFamily(newFam);
-        setActiveFamilyId(newFam.id);
+        setFamilies((prev) => [newlyCreatedFamily!, ...prev]);
+        setFamily(newlyCreatedFamily);
+        setActiveFamilyId(newlyCreatedFamily.id);
         targetFamilyId = newFamId;
+        saveFamilyToSupabase(newlyCreatedFamily).catch(() => {});
       }
     } else if (role === 'parent') {
       if (familyCode && familyCode.trim()) {
         const matched = families.find((f) => f.familyCode.toUpperCase() === familyCode.trim().toUpperCase());
         if (matched) {
           targetFamilyId = matched.id;
+          const updatedFam = { ...matched, parentIds: Array.from(new Set([...matched.parentIds, newUserId])) };
           setFamilies((prev) =>
-            prev.map((f) =>
-              f.id === matched.id
-                ? { ...f, parentIds: Array.from(new Set([...f.parentIds, newUserId])) }
-                : f
-            )
+            prev.map((f) => (f.id === matched.id ? updatedFam : f))
           );
+          saveFamilyToSupabase(updatedFam).catch(() => {});
         }
       }
     }
@@ -775,6 +791,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('codegenz_auth_logged_in', 'true');
     } catch {}
 
+    // Persist new user directly to Supabase
+    try {
+      await saveUserToSupabase(newUser);
+    } catch (saveErr) {
+      console.warn('[Supabase saveUser error]:', saveErr);
+    }
+
     // Welcome Notification
     const welcomeNotif: NotificationItem = {
       id: `notif-welcome-${Date.now()}`,
@@ -789,6 +812,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       actionTab: 'dashboard',
     };
     setNotifications((prev) => [welcomeNotif, ...prev]);
+    addNotificationToSupabase(welcomeNotif).catch(() => {});
 
     // Audit log
     addAuditLog('USER_REGISTER', 'users', `Đăng ký tài khoản mới thành công [Email: ${newUser.email}, Vai trò: ${role}]`);
@@ -822,6 +846,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (res.ok && data.success && data.data) {
           const created: User = data.data;
           setUsers((prev) => [created, ...prev.filter((u) => u.id !== created.id)]);
+          saveUserToSupabase(created).catch(() => {});
           return { success: true };
         } else if (res.status === 400) {
           return { success: false, error: data.error || 'Lỗi tạo người dùng' };
@@ -847,6 +872,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...userData,
     };
     setUsers((prev) => [created, ...prev]);
+    saveUserToSupabase(created).catch(() => {});
     addAuditLog('ADMIN_CREATE_USER', 'users', `Admin tạo người dùng ${created.name} (${created.email})`);
     return { success: true };
   };
@@ -864,6 +890,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (res.ok && data.success && data.data) {
           const updated: User = data.data;
           setUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
+          saveUserToSupabase(updated).catch(() => {});
           return { success: true };
         }
       }
@@ -871,6 +898,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('[App] Admin update user server API unreachable, using local fallback:', err);
     }
 
+    const existing = users.find((u) => u.id === id);
+    if (existing) {
+      const updatedUser = { ...existing, ...updates };
+      saveUserToSupabase(updatedUser).catch(() => {});
+    }
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updates } : u)));
     addAuditLog('ADMIN_UPDATE_USER', `user:${id}`, `Admin cập nhật thông tin người dùng ${id}`);
     return { success: true };
@@ -888,7 +920,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = await res.json();
         if (res.ok && data.success) {
           setUsers((prev) =>
-            prev.map((u) => (u.id === id ? { ...u, status: data.newStatus } : u))
+            prev.map((u) => {
+              if (u.id === id) {
+                const updated = { ...u, status: data.newStatus };
+                saveUserToSupabase(updated).catch(() => {});
+                return updated;
+              }
+              return u;
+            })
           );
           return { success: true };
         }
@@ -901,7 +940,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((u) => {
         if (u.id === id) {
           const newSt = status || (u.status === 'active' ? 'locked' : 'active');
-          return { ...u, status: newSt };
+          const updated = { ...u, status: newSt };
+          saveUserToSupabase(updated).catch(() => {});
+          return updated;
         }
         return u;
       })
@@ -922,6 +963,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (isJson) {
         const data = await res.json();
         if (res.ok && data.success) {
+          const target = users.find((u) => u.id === id);
+          if (target) {
+            saveUserToSupabase({ ...target, password: finalPass }).catch(() => {});
+          }
           return { success: true, message: data.message };
         }
       }
@@ -930,7 +975,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, password: finalPass } : u))
+      prev.map((u) => {
+        if (u.id === id) {
+          const updated = { ...u, password: finalPass };
+          saveUserToSupabase(updated).catch(() => {});
+          return updated;
+        }
+        return u;
+      })
     );
     addAuditLog('ADMIN_RESET_PASSWORD', `user:${id}`, `Admin đặt lại mật khẩu cho người dùng ${id}`);
     return { success: true, message: `Đã đặt lại mật khẩu thành công: ${finalPass}` };
@@ -946,6 +998,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = await res.json();
         if (res.ok && data.success) {
           setUsers((prev) => prev.filter((u) => u.id !== id));
+          deleteUserFromSupabase(id).catch(() => {});
           return { success: true };
         }
       }
@@ -954,6 +1007,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     setUsers((prev) => prev.filter((u) => u.id !== id));
+    deleteUserFromSupabase(id).catch(() => {});
     addAuditLog('ADMIN_DELETE_USER', `user:${id}`, `Admin xóa người dùng ${id}`);
     return { success: true };
   };
@@ -984,6 +1038,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status,
     };
     setAuditLogs((prev) => [newLog, ...prev]);
+    addAuditLogToSupabase(newLog).catch(() => {});
 
     // Send to SQLite API in background
     fetch('/api/db/audit', {

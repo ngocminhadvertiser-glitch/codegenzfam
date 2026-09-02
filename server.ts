@@ -71,15 +71,23 @@ import {
   deleteUserInSupabase,
   upsertFamilyInSupabase,
   deleteFamilyInSupabase,
+  upsertInvitationInSupabase,
+  deleteInvitationInSupabase,
   upsertJournalInSupabase,
   deleteJournalInSupabase,
   upsertFamilyJournalInSupabase,
   deleteFamilyJournalInSupabase,
   upsertConsultationInSupabase,
+  upsertDeepTalkTopicInSupabase,
+  deleteDeepTalkTopicInSupabase,
   upsertDeepTalkSessionInSupabase,
+  upsertChallengeTaskInSupabase,
+  deleteChallengeTaskInSupabase,
   upsertChallengeProgressInSupabase,
   addHappinessInSupabase,
   addNotificationInSupabase,
+  markNotificationReadInSupabase,
+  markAllNotificationsReadInSupabase,
   addAuditLogInSupabase,
 } from "./server/supabaseDb";
 
@@ -294,28 +302,40 @@ async function startServer() {
       };
 
       createUser(newUser);
+      upsertUserInSupabase(newUser).catch(() => {});
 
       // If user provided a family code and targetFamily was matched, link member
       if (familyCode && familyCode.trim() && targetFamilyId) {
         joinFamilyWithCode(newUserId, role, familyCode.trim());
+        const updatedFam = getFamilyById(targetFamilyId);
+        if (updatedFam) {
+          upsertFamilyInSupabase(updatedFam).catch(() => {});
+        }
+      } else if (targetFamilyId) {
+        const createdFam = getFamilyById(targetFamilyId);
+        if (createdFam) {
+          upsertFamilyInSupabase(createdFam).catch(() => {});
+        }
       }
 
       // Welcome Notification
-      addNotification({
+      const welcomeNotif = {
         id: `notif-welcome-${Date.now()}`,
         userId: newUserId,
         title: `Chào mừng bạn đến với CODE GenZ Family! 🎉`,
         message: `Tài khoản ${newUser.name} đã được khởi tạo thành công với vai trò ${
           role === "student" ? "Học sinh THPT" : role === "parent" ? "Phụ huynh" : role === "psychologist" ? "Chuyên gia Tâm lý" : "Quản trị viên"
         }. Hãy bắt đầu khám phá nhật ký cảm xúc và các công cụ gắn kết gia đình.`,
-        type: "system",
+        type: "system" as const,
         isRead: false,
         createdAt: new Date().toISOString(),
         actionTab: "dashboard",
-      });
+      };
+      addNotification(welcomeNotif);
+      addNotificationInSupabase(welcomeNotif).catch(() => {});
 
       // Audit Log
-      addAuditLog({
+      const regAuditLog = {
         id: `log-${Date.now()}`,
         userId: newUserId,
         userName: newUser.name,
@@ -324,8 +344,10 @@ async function startServer() {
         resource: "users",
         details: `Đăng ký tài khoản mới thành công [Email: ${newUser.email}, Vai trò: ${role}]`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(regAuditLog);
+      addAuditLogInSupabase(regAuditLog).catch(() => {});
 
       const { password: _, ...userSafe } = newUser;
       res.json({ success: true, user: userSafe, message: "Đăng ký tài khoản thành công!" });
@@ -448,6 +470,7 @@ async function startServer() {
       };
 
       createUser(userToCreate);
+      upsertUserInSupabase(userToCreate).catch(() => {});
 
       addAuditLog({
         id: `log-${Date.now()}`,
@@ -484,6 +507,7 @@ async function startServer() {
       };
 
       updateUser(mergedUser);
+      upsertUserInSupabase(mergedUser).catch(() => {});
 
       addAuditLog({
         id: `log-${Date.now()}`,
@@ -515,6 +539,10 @@ async function startServer() {
 
       const newStatus = status || (existing.status === "locked" ? "active" : "locked");
       updateUserStatus(id, newStatus);
+      const updatedUser = getUserById(id);
+      if (updatedUser) {
+        upsertUserInSupabase(updatedUser).catch(() => {});
+      }
 
       addAuditLog({
         id: `log-${Date.now()}`,
@@ -542,6 +570,10 @@ async function startServer() {
       const passToSet = newPassword || "password123";
 
       resetUserPassword(id, passToSet);
+      const updatedUser = getUserById(id);
+      if (updatedUser) {
+        upsertUserInSupabase(updatedUser).catch(() => {});
+      }
 
       addAuditLog({
         id: `log-${Date.now()}`,
@@ -571,6 +603,7 @@ async function startServer() {
       }
 
       deleteUser(id);
+      deleteUserInSupabase(id).catch(() => {});
 
       addAuditLog({
         id: `log-${Date.now()}`,
@@ -631,50 +664,57 @@ async function startServer() {
     try {
       const entry = req.body;
       createJournalEntry(entry);
+      upsertJournalInSupabase(entry).catch(() => {});
 
       // If shared with parents, create a notification & award happiness points
       if (entry.privacy === "parents_only" || entry.privacy === "family_open") {
         const family = getAllFamilies()[0];
         if (family) {
-          addHappinessRecord({
+          const happyRec = {
             id: `happy-jr-${Date.now()}`,
             familyId: family.id,
             amount: 15,
-            source: "journal_share",
+            source: "journal_share" as const,
             sourceTitle: `Chia sẻ nhật ký cảm xúc (${entry.emotionLabel})`,
             createdAt: new Date().toISOString(),
-          });
+          };
+          addHappinessRecord(happyRec);
+          addHappinessInSupabase(happyRec).catch(() => {});
 
           // Notify parents
           family.parentIds.forEach((pid) => {
-            addNotification({
+            const notif = {
               id: `notif-${Date.now()}-${pid}`,
               userId: pid,
               title: "Nhật ký cảm xúc mới từ con",
               message: `${entry.studentName} vừa chia sẻ nhật ký cảm xúc: "${entry.emotionLabel}". Hãy vào gửi một cái ôm hoặc lời nhắn động viên con nhé!`,
-              type: "journal",
+              type: "journal" as const,
               isRead: false,
               createdAt: new Date().toISOString(),
               actionTab: "journals",
-            });
+            };
+            addNotification(notif);
+            addNotificationInSupabase(notif).catch(() => {});
           });
         }
       }
 
       // Security audit log
-      addAuditLog({
+      const auditLogItem = {
         id: `log-${Date.now()}`,
         userId: entry.studentId,
         userName: entry.studentName,
-        userRole: "student",
+        userRole: "student" as const,
         action: "CREATE_JOURNAL",
         resource: "emotion_journals",
         details: `Tạo nhật ký cảm xúc ID: ${entry.id} [${entry.emotionLabel} - mức độ ${entry.intensity}/10, chế độ ${entry.privacy}]`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(auditLogItem);
+      addAuditLogInSupabase(auditLogItem).catch(() => {});
 
-      res.json({ success: true, message: "Đã lưu nhật ký vào cơ sở dữ liệu SQLite." });
+      res.json({ success: true, message: "Đã lưu nhật ký vào cơ sở dữ liệu SQLite & Supabase." });
     } catch (err: any) {
       console.error("Create journal SQLite error:", err);
       res.status(500).json({ success: false, error: err.message });
@@ -686,20 +726,26 @@ async function startServer() {
       const { id } = req.params;
       const { privacy, userId, userName, userRole } = req.body;
       updateJournalPrivacy(id, privacy);
+      const updatedJournal = getAllJournals().find((j) => j.id === id);
+      if (updatedJournal) {
+        upsertJournalInSupabase(updatedJournal).catch(() => {});
+      }
 
-      addAuditLog({
+      const logItem = {
         id: `log-${Date.now()}`,
         userId: userId || "user-student-1",
         userName: userName || "Học sinh",
-        userRole: userRole || "student",
+        userRole: (userRole as any) || "student",
         action: "UPDATE_PRIVACY",
         resource: "emotion_journals",
         details: `Cập nhật quyền riêng tư nhật ký ${id} sang ${privacy}`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(logItem);
+      addAuditLogInSupabase(logItem).catch(() => {});
 
-      res.json({ success: true, message: "Cập nhật quyền riêng tư SQLite thành công." });
+      res.json({ success: true, message: "Cập nhật quyền riêng tư thành công." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -710,20 +756,23 @@ async function startServer() {
       const { id } = req.params;
       const { userId, userName } = req.query;
       deleteJournalEntry(id);
+      deleteJournalInSupabase(id).catch(() => {});
 
-      addAuditLog({
+      const logItem = {
         id: `log-${Date.now()}`,
         userId: (userId as string) || "user-student-1",
         userName: (userName as string) || "Học sinh",
-        userRole: "student",
+        userRole: "student" as const,
         action: "DELETE_JOURNAL",
         resource: "emotion_journals",
-        details: `Xóa nhật ký cảm xúc ID ${id} khỏi SQLite`,
+        details: `Xóa nhật ký cảm xúc ID ${id}`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(logItem);
+      addAuditLogInSupabase(logItem).catch(() => {});
 
-      res.json({ success: true, message: "Đã xóa nhật ký khỏi SQLite." });
+      res.json({ success: true, message: "Đã xóa nhật ký thành công." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -735,49 +784,59 @@ async function startServer() {
       const reaction = req.body;
       addParentReaction(id, reaction);
 
-      // Add happiness points (+10)
-      const family = getAllFamilies()[0];
-      if (family) {
-        addHappinessRecord({
-          id: `happy-rx-${Date.now()}`,
-          familyId: family.id,
-          amount: 10,
-          source: "positive_reaction",
-          sourceTitle: `${reaction.parentName} phản hồi nhật ký của con`,
-          createdAt: new Date().toISOString(),
-        });
-      }
-
-      // Notify student
       const allJournals = getAllJournals();
       const targetJournal = allJournals.find((j) => j.id === id);
       if (targetJournal) {
-        addNotification({
+        upsertJournalInSupabase(targetJournal).catch(() => {});
+      }
+
+      // Add happiness points (+10)
+      const family = getAllFamilies()[0];
+      if (family) {
+        const happyRec = {
+          id: `happy-rx-${Date.now()}`,
+          familyId: family.id,
+          amount: 10,
+          source: "positive_reaction" as const,
+          sourceTitle: `${reaction.parentName} phản hồi nhật ký của con`,
+          createdAt: new Date().toISOString(),
+        };
+        addHappinessRecord(happyRec);
+        addHappinessInSupabase(happyRec).catch(() => {});
+      }
+
+      // Notify student
+      if (targetJournal) {
+        const notif = {
           id: `notif-${Date.now()}`,
           userId: targetJournal.studentId,
           title: "Cha mẹ đã phản hồi nhật ký của bạn",
           message: `${reaction.parentName} (${reaction.parentRoleName}) vừa gửi biểu cảm và thông điệp yêu thương tới nhật ký của bạn.`,
-          type: "reaction",
+          type: "reaction" as const,
           isRead: false,
           createdAt: new Date().toISOString(),
           actionTab: "journals",
-        });
+        };
+        addNotification(notif);
+        addNotificationInSupabase(notif).catch(() => {});
       }
 
       // Audit log
-      addAuditLog({
+      const logItem = {
         id: `log-${Date.now()}`,
         userId: reaction.parentId,
         userName: reaction.parentName,
-        userRole: "parent",
+        userRole: "parent" as const,
         action: "ADD_REACTION",
         resource: "emotion_journals",
         details: `Phụ huynh gửi phản hồi [${reaction.reactionType}] tới nhật ký ID ${id}`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(logItem);
+      addAuditLogInSupabase(logItem).catch(() => {});
 
-      res.json({ success: true, message: "Đã lưu phản hồi của phụ huynh vào SQLite." });
+      res.json({ success: true, message: "Đã lưu phản hồi của phụ huynh vào SQLite & Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -797,37 +856,42 @@ async function startServer() {
     try {
       const consultation = req.body;
       createConsultation(consultation);
+      upsertConsultationInSupabase(consultation).catch(() => {});
 
       // Notify psychologists
       const users = getAllUsers();
       const psychologists = users.filter((u) => u.role === "psychologist");
       psychologists.forEach((psy) => {
-        addNotification({
+        const notif = {
           id: `notif-${Date.now()}-${psy.id}`,
           userId: psy.id,
           title: "Yêu cầu tham vấn mới từ học sinh",
           message: `Học sinh ${consultation.studentName} đã gửi yêu cầu tham vấn: "${consultation.topic}".`,
-          type: "consultation",
+          type: "consultation" as const,
           isRead: false,
           createdAt: new Date().toISOString(),
           actionTab: "consultation",
-        });
+        };
+        addNotification(notif);
+        addNotificationInSupabase(notif).catch(() => {});
       });
 
       // Audit log
-      addAuditLog({
+      const logItem = {
         id: `log-${Date.now()}`,
         userId: consultation.studentId,
         userName: consultation.studentName,
-        userRole: "student",
+        userRole: "student" as const,
         action: "CREATE_CONSULTATION",
         resource: "consultation_sessions",
         details: `Học sinh gửi yêu cầu tham vấn tâm lý ID: ${consultation.id} chủ đề "${consultation.topic}"`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(logItem);
+      addAuditLogInSupabase(logItem).catch(() => {});
 
-      res.json({ success: true, message: "Đã lưu phiên tham vấn vào SQLite." });
+      res.json({ success: true, message: "Đã lưu phiên tham vấn vào SQLite & Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -839,25 +903,28 @@ async function startServer() {
       const message = req.body;
       addConsultationMessage(id, message);
 
-      // Notify counterparty
       const consultations = getAllConsultations();
       const session = consultations.find((c) => c.id === id);
       if (session) {
+        upsertConsultationInSupabase(session).catch(() => {});
+
         const targetUserId = message.senderRole === "student" ? (session.psychologistId || "user-psy-1") : session.studentId;
-        addNotification({
+        const notif = {
           id: `notif-${Date.now()}`,
           userId: targetUserId,
           title: `Tin nhắn tham vấn mới từ ${message.senderName}`,
           message: message.content.length > 80 ? message.content.slice(0, 80) + "..." : message.content,
-          type: "consultation",
+          type: "consultation" as const,
           isRead: false,
           createdAt: new Date().toISOString(),
           actionTab: "consultation",
-        });
+        };
+        addNotification(notif);
+        addNotificationInSupabase(notif).catch(() => {});
       }
 
       // Audit log
-      addAuditLog({
+      const logItem = {
         id: `log-${Date.now()}`,
         userId: message.senderId,
         userName: message.senderName,
@@ -866,10 +933,12 @@ async function startServer() {
         resource: "consultation_sessions",
         details: `Gửi tin nhắn trong phiên tham vấn ID ${id}`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(logItem);
+      addAuditLogInSupabase(logItem).catch(() => {});
 
-      res.json({ success: true, message: "Đã lưu tin nhắn tham vấn vào SQLite." });
+      res.json({ success: true, message: "Đã lưu tin nhắn tham vấn vào SQLite & Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -881,36 +950,44 @@ async function startServer() {
       const { status, officialFeedback, nextActionPlan, privateNotes, psychologistId, psychologistName } = req.body;
       updateConsultationStatus(id, status, officialFeedback, nextActionPlan, privateNotes);
 
-      // If official feedback provided, notify student
       const consultations = getAllConsultations();
       const session = consultations.find((c) => c.id === id);
-      if (session && officialFeedback) {
-        addNotification({
-          id: `notif-${Date.now()}`,
-          userId: session.studentId,
-          title: "Chuyên gia đã gửi đánh giá & giải pháp tham vấn",
-          message: `Chuyên gia tâm lý đã cập nhật đánh giá chuyên môn và kế hoạch hành động cho phiên tham vấn "${session.topic}".`,
-          type: "consultation",
-          isRead: false,
-          createdAt: new Date().toISOString(),
-          actionTab: "consultation",
-        });
+      if (session) {
+        upsertConsultationInSupabase(session).catch(() => {});
+
+        // If official feedback provided, notify student
+        if (officialFeedback) {
+          const notif = {
+            id: `notif-${Date.now()}`,
+            userId: session.studentId,
+            title: "Chuyên gia đã gửi đánh giá & giải pháp tham vấn",
+            message: `Chuyên gia tâm lý đã cập nhật đánh giá chuyên môn và kế hoạch hành động cho phiên tham vấn "${session.topic}".`,
+            type: "consultation" as const,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            actionTab: "consultation",
+          };
+          addNotification(notif);
+          addNotificationInSupabase(notif).catch(() => {});
+        }
       }
 
       // Audit log
-      addAuditLog({
+      const logItem = {
         id: `log-${Date.now()}`,
         userId: psychologistId || "user-psy-1",
         userName: psychologistName || "Chuyên gia tâm lý",
-        userRole: "psychologist",
+        userRole: "psychologist" as const,
         action: "UPDATE_CONSULTATION_STATUS",
         resource: "consultation_sessions",
         details: `Cập nhật trạng thái phiên tham vấn ID ${id} sang ${status}`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(logItem);
+      addAuditLogInSupabase(logItem).catch(() => {});
 
-      res.json({ success: true, message: "Đã cập nhật trạng thái tham vấn trong SQLite." });
+      res.json({ success: true, message: "Đã cập nhật trạng thái tham vấn trong SQLite & Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -921,7 +998,8 @@ async function startServer() {
     try {
       const session = req.body;
       createDeepTalkSession(session);
-      res.json({ success: true, message: "Đã tạo phiên Deep Talk trong SQLite." });
+      upsertDeepTalkSessionInSupabase(session).catch(() => {});
+      res.json({ success: true, message: "Đã tạo phiên Deep Talk trong SQLite & Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -932,7 +1010,12 @@ async function startServer() {
       const { id } = req.params;
       const { questionId, answer, isParent } = req.body;
       updateDeepTalkAnswer(id, questionId, answer, isParent);
-      res.json({ success: true, message: "Đã lưu câu trả lời Deep Talk vào SQLite." });
+
+      const session = getAllDeepTalkSessions().find((s) => s.id === id);
+      if (session) {
+        upsertDeepTalkSessionInSupabase(session).catch(() => {});
+      }
+      res.json({ success: true, message: "Đã lưu câu trả lời Deep Talk vào SQLite & Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -944,32 +1027,41 @@ async function startServer() {
       const { reflection, familyId, topicTitle } = req.body;
       completeDeepTalkSession(id, reflection);
 
+      const session = getAllDeepTalkSessions().find((s) => s.id === id);
+      if (session) {
+        upsertDeepTalkSessionInSupabase(session).catch(() => {});
+      }
+
       // Award 50 happiness points
       if (familyId) {
-        addHappinessRecord({
+        const happyRec = {
           id: `happy-dt-${Date.now()}`,
           familyId,
           amount: 50,
-          source: "deeptalk",
+          source: "deeptalk" as const,
           sourceTitle: `Hoàn thành Deep Talk: ${topicTitle || "Đối thoại sâu gia đình"}`,
           createdAt: new Date().toISOString(),
-        });
+        };
+        addHappinessRecord(happyRec);
+        addHappinessInSupabase(happyRec).catch(() => {});
       }
 
       // Audit log
-      addAuditLog({
+      const logItem = {
         id: `log-${Date.now()}`,
         userId: "system",
         userName: "Gia đình",
-        userRole: "student",
+        userRole: "student" as const,
         action: "COMPLETE_DEEP_TALK",
         resource: "deep_talk_sessions",
         details: `Hoàn thành phiên Deep Talk ID ${id}, cộng 50 điểm gắn kết`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(logItem);
+      addAuditLogInSupabase(logItem).catch(() => {});
 
-      res.json({ success: true, message: "Đã hoàn thành phiên Deep Talk trong SQLite." });
+      res.json({ success: true, message: "Đã hoàn thành phiên Deep Talk trong SQLite & Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -982,23 +1074,31 @@ async function startServer() {
       const { role, note, userName, userId, title, points } = req.body;
       const result = confirmChallengeDay(day, role, note);
 
+      const allProgress = getAllChallengeProgress();
+      const updatedDayProgress = allProgress.find((p) => p.day === day);
+      if (updatedDayProgress) {
+        upsertChallengeProgressInSupabase(updatedDayProgress).catch(() => {});
+      }
+
       // If day newly completed by both sides
       if (result.nowCompleted) {
         const family = getAllFamilies()[0];
         if (family) {
-          addHappinessRecord({
+          const happyRec = {
             id: `happy-ch-${Date.now()}`,
             familyId: family.id,
             amount: points || 30,
-            source: "challenge",
+            source: "challenge" as const,
             sourceTitle: `Cả hai bên hoàn thành Ngày ${day}: ${title || "Thử thách 30 ngày"}`,
             createdAt: new Date().toISOString(),
-          });
+          };
+          addHappinessRecord(happyRec);
+          addHappinessInSupabase(happyRec).catch(() => {});
         }
       }
 
       // Audit log
-      addAuditLog({
+      const logItem = {
         id: `log-${Date.now()}`,
         userId: userId || `user-${role}-1`,
         userName: userName || (role === "student" ? "Học sinh" : "Phụ huynh"),
@@ -1007,10 +1107,12 @@ async function startServer() {
         resource: "challenge_progress",
         details: `${role === "student" ? "Học sinh" : "Phụ huynh"} xác nhận hoàn thành Ngày ${day}`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(logItem);
+      addAuditLogInSupabase(logItem).catch(() => {});
 
-      res.json({ success: true, message: "Đã cập nhật tiến độ thử thách vào SQLite.", nowCompleted: result.nowCompleted });
+      res.json({ success: true, message: "Đã cập nhật tiến độ thử thách vào SQLite & Supabase.", nowCompleted: result.nowCompleted });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -1021,7 +1123,8 @@ async function startServer() {
     try {
       const record = req.body;
       addHappinessRecord(record);
-      res.json({ success: true, message: "Đã cập nhật điểm hạnh phúc SQLite." });
+      addHappinessInSupabase(record).catch(() => {});
+      res.json({ success: true, message: "Đã cập nhật điểm hạnh phúc SQLite & Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -1032,7 +1135,8 @@ async function startServer() {
     try {
       const { id } = req.params;
       markNotificationRead(id);
-      res.json({ success: true, message: "Đã đánh dấu thông báo đọc trong SQLite." });
+      markNotificationReadInSupabase(id).catch(() => {});
+      res.json({ success: true, message: "Đã đánh dấu thông báo đọc trong SQLite & Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -1042,7 +1146,10 @@ async function startServer() {
     try {
       const { userId } = req.body;
       markAllNotificationsRead(userId);
-      res.json({ success: true, message: "Đã đánh dấu tất cả thông báo đọc trong SQLite." });
+      if (userId) {
+        markAllNotificationsReadInSupabase(userId).catch(() => {});
+      }
+      res.json({ success: true, message: "Đã đánh dấu tất cả thông báo đọc trong SQLite & Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -1093,15 +1200,21 @@ async function startServer() {
       };
 
       createFamily(newFamily);
+      upsertFamilyInSupabase(newFamily).catch(() => {});
 
       if (creatorId) {
-        updateUser({
-          ...getUserById(creatorId)!,
-          familyId: newFamily.id,
-        });
+        const creator = getUserById(creatorId);
+        if (creator) {
+          const updatedUser = {
+            ...creator,
+            familyId: newFamily.id,
+          };
+          updateUser(updatedUser);
+          upsertUserInSupabase(updatedUser).catch(() => {});
+        }
       }
 
-      addAuditLog({
+      const logItem = {
         id: `log-${Date.now()}`,
         userId: creatorId || "system",
         userName: "Người dùng",
@@ -1110,8 +1223,10 @@ async function startServer() {
         resource: "families",
         details: `Tạo nhóm gia đình mới: "${name}" (Mã: ${newFamily.familyCode})`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(logItem);
+      addAuditLogInSupabase(logItem).catch(() => {});
 
       res.json({ success: true, data: newFamily, message: `Đã tạo nhóm gia đình "${name}" thành công!` });
     } catch (err: any) {
@@ -1128,6 +1243,7 @@ async function startServer() {
 
       const updated = { ...existing, ...updates };
       updateFamily(updated);
+      upsertFamilyInSupabase(updated).catch(() => {});
       res.json({ success: true, data: updated, message: "Đã cập nhật thông tin nhóm gia đình." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -1138,6 +1254,7 @@ async function startServer() {
     try {
       const { id } = req.params;
       deleteFamily(id);
+      deleteFamilyInSupabase(id).catch(() => {});
       res.json({ success: true, message: "Đã xóa nhóm gia đình." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -1149,6 +1266,14 @@ async function startServer() {
       const { id } = req.params;
       const { userId, role, familyRole } = req.body;
       const result = addMemberToFamily(id, userId, role, familyRole);
+      const updatedFamily = getFamilyById(id);
+      if (updatedFamily) {
+        upsertFamilyInSupabase(updatedFamily).catch(() => {});
+      }
+      const updatedUser = getUserById(userId);
+      if (updatedUser) {
+        upsertUserInSupabase(updatedUser).catch(() => {});
+      }
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -1160,6 +1285,14 @@ async function startServer() {
       const { id } = req.params;
       const { userId } = req.body;
       const result = removeMemberFromFamily(id, userId);
+      const updatedFamily = getFamilyById(id);
+      if (updatedFamily) {
+        upsertFamilyInSupabase(updatedFamily).catch(() => {});
+      }
+      const updatedUser = getUserById(userId);
+      if (updatedUser) {
+        upsertUserInSupabase(updatedUser).catch(() => {});
+      }
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -1171,8 +1304,13 @@ async function startServer() {
     try {
       const { userId, userRole, code } = req.body;
       const result = joinFamilyWithCode(userId, userRole, code);
-      if (result.success) {
-        addAuditLog({
+      if (result.success && result.family) {
+        upsertFamilyInSupabase(result.family).catch(() => {});
+        const updatedUser = getUserById(userId);
+        if (updatedUser) {
+          upsertUserInSupabase(updatedUser).catch(() => {});
+        }
+        const logItem = {
           id: `log-${Date.now()}`,
           userId,
           userName: userRole === "student" ? "Học sinh" : "Phụ huynh",
@@ -1181,8 +1319,10 @@ async function startServer() {
           resource: "families",
           details: `Kết nối thành công vào gia đình mã ${code}`,
           timestamp: new Date().toISOString(),
-          status: "SUCCESS",
-        });
+          status: "SUCCESS" as const,
+        };
+        addAuditLog(logItem);
+        addAuditLogInSupabase(logItem).catch(() => {});
       }
       res.json(result);
     } catch (err: any) {
@@ -1204,20 +1344,23 @@ async function startServer() {
     try {
       const inv = req.body;
       createFamilyInvitation(inv);
+      upsertInvitationInSupabase(inv).catch(() => {});
 
       // Check if recipient is an existing user to push notification
       const user = findUserByEmailOrName(inv.recipientEmailOrPhone);
       if (user) {
-        addNotification({
+        const notif = {
           id: `notif-${Date.now()}`,
           userId: user.id,
           title: "Lời mời kết nối gia đình mới",
           message: `${inv.senderName} (${inv.senderRole === 'student' ? 'Con' : 'Phụ huynh'}) đã gửi lời mời bạn tham gia nhóm gia đình "${inv.familyName}". Mã: ${inv.familyCode}`,
-          type: "system",
+          type: "system" as const,
           isRead: false,
           createdAt: new Date().toISOString(),
           actionTab: "family",
-        });
+        };
+        addNotification(notif);
+        addNotificationInSupabase(notif).catch(() => {});
       }
 
       res.json({ success: true, message: `Đã gửi lời mời kết nối tới ${inv.recipientEmailOrPhone} thành công!` });
@@ -1232,8 +1375,18 @@ async function startServer() {
       const { status, userId, userRole, familyId } = req.body;
       const result = respondFamilyInvitation(id, status);
 
+      const allInvs = getAllFamilyInvitations();
+      const updatedInv = allInvs.find((inv) => inv.id === id);
+      if (updatedInv) {
+        upsertInvitationInSupabase(updatedInv).catch(() => {});
+      }
+
       if (status === "accepted" && userId && familyId) {
         addMemberToFamily(familyId, userId, userRole);
+        const updatedFam = getFamilyById(familyId);
+        if (updatedFam) upsertFamilyInSupabase(updatedFam).catch(() => {});
+        const updatedUser = getUserById(userId);
+        if (updatedUser) upsertUserInSupabase(updatedUser).catch(() => {});
       }
 
       res.json(result);
@@ -1247,6 +1400,7 @@ async function startServer() {
     try {
       const log = req.body;
       addAuditLog(log);
+      addAuditLogInSupabase(log).catch(() => {});
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
