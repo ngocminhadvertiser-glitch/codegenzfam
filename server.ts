@@ -62,6 +62,26 @@ import {
   getFullSqliteSnapshot,
   restoreFullSnapshot,
 } from "./server/sqliteDb";
+import {
+  isSupabaseConfigured,
+  checkSupabaseHealth,
+  migrateAllDataToSupabase,
+  SUPABASE_SCHEMA_SQL,
+  upsertUserInSupabase,
+  deleteUserInSupabase,
+  upsertFamilyInSupabase,
+  deleteFamilyInSupabase,
+  upsertJournalInSupabase,
+  deleteJournalInSupabase,
+  upsertFamilyJournalInSupabase,
+  deleteFamilyJournalInSupabase,
+  upsertConsultationInSupabase,
+  upsertDeepTalkSessionInSupabase,
+  upsertChallengeProgressInSupabase,
+  addHappinessInSupabase,
+  addNotificationInSupabase,
+  addAuditLogInSupabase,
+} from "./server/supabaseDb";
 
 dotenv.config();
 
@@ -95,9 +115,68 @@ async function startServer() {
     res.json({
       status: "ok",
       service: "CODE GenZ Family API",
-      database: "SQLite 3 (Persistent)",
+      database: "SQLite 3 & Supabase Cloud Hybrid",
       storageFile: "data-storage/codegenz.sqlite",
+      supabaseConfigured: isSupabaseConfigured(),
     });
+  });
+
+  // ==========================================
+  // SUPABASE CLOUD DATABASE API & MIGRATION
+  // ==========================================
+
+  // Check Supabase Connection & Table statistics
+  app.get("/api/supabase/status", async (_req, res) => {
+    try {
+      const health = await checkSupabaseHealth();
+      res.json({ success: true, data: health });
+    } catch (err: any) {
+      console.error("[Supabase Status Error]:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Get Supabase SQL Schema for manual run or verification
+  app.get("/api/supabase/schema-sql", (_req, res) => {
+    res.json({
+      success: true,
+      sql: SUPABASE_SCHEMA_SQL,
+      instructions: "Copy this SQL schema into your Supabase Dashboard -> SQL Editor (https://supabase.com/dashboard/project/_/sql/new) and click 'RUN'. Then click 'Chuyển đổi dữ liệu' (Migrate data) to sync everything.",
+    });
+  });
+
+  // Trigger full migration of all entities to Supabase
+  app.post("/api/supabase/migrate", async (_req, res) => {
+    try {
+      if (!isSupabaseConfigured()) {
+        return res.status(400).json({
+          success: false,
+          error: "Chưa cấu hình SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY trong tệp .env",
+        });
+      }
+      const result = await migrateAllDataToSupabase();
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Supabase Migration Error]:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Sync snapshot
+  app.post("/api/supabase/sync", async (_req, res) => {
+    try {
+      if (!isSupabaseConfigured()) {
+        return res.status(400).json({
+          success: false,
+          error: "Chưa cấu hình Supabase trong tệp .env",
+        });
+      }
+      const result = await migrateAllDataToSupabase();
+      const snapshot = getFullSqliteSnapshot();
+      res.json({ success: result.success, message: result.message, counts: result.counts, snapshot });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   // ==========================================

@@ -130,6 +130,13 @@ interface AppContextType {
   resetToInitialData: () => Promise<void>;
   syncDataToServerNow: () => Promise<{ success: boolean; message: string }>;
   reloadFromSqlite: () => Promise<void>;
+  // Supabase Cloud integration
+  supabaseConfigured: boolean;
+  supabaseConnected: boolean;
+  supabaseStats: any;
+  checkSupabaseStatus: () => Promise<any>;
+  migrateToSupabaseNow: () => Promise<{ success: boolean; message: string; counts?: Record<string, number>; errors?: string[] }>;
+  fetchSupabaseSchemaSql: () => Promise<{ sql: string; instructions: string }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -138,6 +145,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // SQLite & Database connection status
   const [sqliteConnected, setSqliteConnected] = useState<boolean>(false);
   const sqliteFile = 'data-storage/codegenz.sqlite';
+
+  // Supabase Cloud State
+  const [supabaseConfigured, setSupabaseConfigured] = useState<boolean>(false);
+  const [supabaseConnected, setSupabaseConnected] = useState<boolean>(false);
+  const [supabaseStats, setSupabaseStats] = useState<any>(null);
 
   // Base state with localStorage hydration
   const [users, setUsers] = useState<User[]>(() => {
@@ -2078,6 +2090,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addAuditLog('DATABASE_RESET', 'SQLite Engine', 'Tái thiết lập toàn bộ cơ sở dữ liệu SQLite về dữ liệu gốc ban đầu.');
   };
 
+  // Supabase Status check
+  const checkSupabaseStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/supabase/status');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setSupabaseConfigured(Boolean(json.data.configured));
+          setSupabaseConnected(Boolean(json.data.connected));
+          setSupabaseStats(json.data);
+          return json.data;
+        }
+      }
+    } catch (err) {
+      console.warn('Check Supabase status error:', err);
+    }
+    return null;
+  }, []);
+
+  // Migrate All Data to Supabase
+  const migrateToSupabaseNow = useCallback(async () => {
+    try {
+      const res = await fetch('/api/supabase/migrate', { method: 'POST' });
+      const json = await res.json();
+      await checkSupabaseStatus();
+      if (json.success) {
+        addAuditLog(
+          'SUPABASE_MIGRATION',
+          'Supabase Cloud Database',
+          `Chuyển đổi toàn bộ dữ liệu ứng dụng lên Supabase thành công. Tổng cộng: ${Object.values(json.counts || {}).reduce((a: any, b: any) => a + b, 0)} bản ghi.`
+        );
+        triggerCelebration();
+      }
+      return json;
+    } catch (err: any) {
+      return { success: false, message: `Lỗi khi chuyển đổi dữ liệu lên Supabase: ${err.message || String(err)}` };
+    }
+  }, [checkSupabaseStatus, triggerCelebration]);
+
+  // Fetch Supabase SQL Schema
+  const fetchSupabaseSchemaSql = useCallback(async () => {
+    try {
+      const res = await fetch('/api/supabase/schema-sql');
+      const json = await res.json();
+      return json;
+    } catch (err: any) {
+      return { sql: '', instructions: 'Không thể tải SQL schema' };
+    }
+  }, []);
+
+  // Auto check Supabase status on load
+  useEffect(() => {
+    checkSupabaseStatus();
+  }, [checkSupabaseStatus]);
+
   return (
     <AppContext.Provider
       value={{
@@ -2148,6 +2215,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetToInitialData,
         syncDataToServerNow,
         reloadFromSqlite,
+        // Supabase integration
+        supabaseConfigured,
+        supabaseConnected,
+        supabaseStats,
+        checkSupabaseStatus,
+        migrateToSupabaseNow,
+        fetchSupabaseSchemaSql,
       }}
     >
       {children}

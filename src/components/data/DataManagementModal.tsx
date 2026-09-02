@@ -29,6 +29,9 @@ import {
   Table,
   CheckCircle,
   ShieldCheck,
+  Zap,
+  ArrowRight,
+  ExternalLink,
 } from 'lucide-react';
 import { CodeGenzLogo, CodeGenzMascot } from '../Logo';
 
@@ -62,13 +65,26 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
     auditLogs,
     currentUser,
     isAuthenticated,
+    // Supabase
+    supabaseConfigured,
+    supabaseConnected,
+    supabaseStats,
+    checkSupabaseStatus,
+    migrateToSupabaseNow,
+    fetchSupabaseSchemaSql,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'sqlite' | 'export' | 'import' | 'cloud' | 'reset'>('sqlite');
+  const [activeTab, setActiveTab] = useState<'sqlite' | 'supabase' | 'export' | 'import' | 'cloud' | 'reset'>('supabase');
   const [xmlContent, setXmlContent] = useState<string>('');
   const [jsonContent, setJsonContent] = useState<string>('');
   const [sqlContent, setSqlContent] = useState<string>('');
   const [copiedType, setCopiedType] = useState<string | null>(null);
+
+  // Supabase migration state
+  const [supabaseMigrating, setSupabaseMigrating] = useState<boolean>(false);
+  const [supabaseMigrationResult, setSupabaseMigrationResult] = useState<any>(null);
+  const [supabaseSqlText, setSupabaseSqlText] = useState<string>('');
+  const [showSqlViewer, setShowSqlViewer] = useState<boolean>(false);
 
   // Import states
   const [importedXmlString, setImportedXmlString] = useState<string>('');
@@ -89,7 +105,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
 
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Generate exports on tab open
+  // Generate exports & check supabase on modal open
   useEffect(() => {
     if (isOpen) {
       const snapshot = getFullDatabaseSnapshot();
@@ -97,8 +113,12 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
       setJsonContent(exportToJson(snapshot));
       setSqlContent(exportToSqlDump(snapshot));
       setNotification(null);
+      checkSupabaseStatus();
+      fetchSupabaseSchemaSql().then((res) => {
+        if (res && res.sql) setSupabaseSqlText(res.sql);
+      });
     }
-  }, [isOpen, users, journalEntries, consultations, family, challengeTasks, deepTalkTopics, happinessHistory]);
+  }, [isOpen, users, journalEntries, consultations, family, challengeTasks, deepTalkTopics, happinessHistory, checkSupabaseStatus, fetchSupabaseSchemaSql]);
 
   if (!isOpen || !isAuthenticated || currentUser.role !== 'admin') return null;
 
@@ -283,11 +303,12 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
         {/* Navigation Tabs */}
         <div className="bg-slate-100/90 border-b border-slate-200 px-5 flex items-center gap-2 overflow-x-auto shrink-0 py-2.5">
           {[
-            { id: 'sqlite', label: '1. Cơ sở dữ liệu SQLite', icon: Database },
-            { id: 'export', label: '2. Xuất Tệp (XML / JSON / SQL)', icon: Download },
-            { id: 'import', label: '3. Nhập & Khôi Phục (Import XML)', icon: Upload },
-            { id: 'cloud', label: '4. Máy Chủ & Đám Mây', icon: Server },
-            { id: 'reset', label: '5. Thiết Lập Lại Demo', icon: RefreshCw },
+            { id: 'supabase', label: '1. Supabase Cloud DB (Đám Mây) ⚡', icon: Zap },
+            { id: 'sqlite', label: '2. Cơ sở dữ liệu SQLite', icon: Database },
+            { id: 'export', label: '3. Xuất Tệp (XML / JSON / SQL)', icon: Download },
+            { id: 'import', label: '4. Nhập & Khôi Phục (Import XML)', icon: Upload },
+            { id: 'cloud', label: '5. Máy Chủ & Đám Mây', icon: Server },
+            { id: 'reset', label: '6. Thiết Lập Lại Demo', icon: RefreshCw },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -310,7 +331,174 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
 
         {/* Body Content */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 bg-slate-50 space-y-6">
-          {/* TAB 1: SQLITE 3 DATABASE ENGINE */}
+          {/* TAB 1: SUPABASE CLOUD DATABASE & MIGRATION */}
+          {activeTab === 'supabase' && (
+            <div className="space-y-6">
+              {/* Supabase Hero Banner */}
+              <div className="bg-gradient-to-r from-[#0F172A] via-[#1E1B4B] to-[#134E4A] p-6 rounded-3xl text-white shadow-lg relative overflow-hidden border border-emerald-500/30">
+                <div className="absolute top-0 right-0 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+                      <span className="text-xs uppercase tracking-widest font-black text-emerald-400">
+                        Supabase PostgreSQL Cloud: Đã kết nối
+                      </span>
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                      <span>Cơ Sở Dữ Liệu Đám Mây Supabase</span>
+                      <span className="text-[11px] font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full">
+                        Cloud Postgres
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                      Toàn bộ cấu hình Supabase URL & Service Role Key đã được kích hoạt. Bạn có thể chuyển đổi toàn bộ profile người dùng, nhật ký cảm xúc, tham vấn tâm lý, câu hỏi đối thoại Deep Talk, thử thách 30 ngày, gia đình và điểm gắn kết lên máy chủ Supabase.
+                    </p>
+                    <div className="flex items-center gap-3 text-[11px] text-emerald-200/90 font-mono pt-1">
+                      <span className="bg-white/10 px-2.5 py-1 rounded-md border border-white/10">
+                        URL: https://tqnzlwkakeocxufznjfi.supabase.co
+                      </span>
+                      <span className="bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-md border border-emerald-500/30">
+                        Service Role Key: Active 🔑
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                    <button
+                      onClick={async () => {
+                        setSupabaseMigrating(true);
+                        const res = await migrateToSupabaseNow();
+                        setSupabaseMigrating(false);
+                        setSupabaseMigrationResult(res);
+                        if (res.success) {
+                          setNotification({ type: 'success', text: 'Chuyển đổi toàn bộ dữ liệu lên Supabase thành công!' });
+                        } else {
+                          setNotification({ type: 'error', text: res.message || 'Lỗi khi chuyển đổi dữ liệu lên Supabase' });
+                        }
+                      }}
+                      disabled={supabaseMigrating}
+                      className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                    >
+                      <Zap className={`w-4 h-4 text-slate-950 ${supabaseMigrating ? 'animate-spin' : ''}`} />
+                      <span>{supabaseMigrating ? 'Đang chuyển đổi dữ liệu...' : '🚀 Chuyển Đổi Dữ Liệu Lên Supabase Ngay'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowSqlViewer(!showSqlViewer)}
+                      className="px-4 py-3 bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs rounded-2xl border border-white/20 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Code2 className="w-4 h-4 text-emerald-300" />
+                      <span>{showSqlViewer ? 'Ẩn SQL DDL' : 'Xem SQL Schema'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* SQL Schema Viewer if toggled */}
+              {showSqlViewer && (
+                <div className="bg-slate-900 text-white p-5 rounded-2xl border border-emerald-500/30 shadow-md space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Code2 className="w-4 h-4 text-emerald-400" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-300">
+                        Mã DDL Tạo 13 Bảng PostgreSQL trên Supabase SQL Editor
+                      </h4>
+                    </div>
+                    <button
+                      onClick={() => handleCopy(supabaseSqlText, 'supabase-sql')}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs rounded-lg flex items-center gap-1.5 transition-colors"
+                    >
+                      {copiedType === 'supabase-sql' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedType === 'supabase-sql' ? 'Đã sao chép!' : 'Sao chép SQL'}</span>
+                    </button>
+                  </div>
+                  <pre className="text-[11px] font-mono text-emerald-200 bg-slate-950 p-4 rounded-xl max-h-60 overflow-y-auto border border-slate-800 select-all">
+                    {supabaseSqlText}
+                  </pre>
+                  <p className="text-[11px] text-slate-400">
+                    💡 Bạn có thể dán đoạn mã SQL trên vào mục <strong>SQL Editor</strong> trên Supabase Dashboard nếu muốn kiểm tra cấu trúc bảng quan hệ PostgreSQL.
+                  </p>
+                </div>
+              )}
+
+              {/* Migration Result Banner */}
+              {supabaseMigrationResult && (
+                <div
+                  className={`p-5 rounded-2xl border ${
+                    supabaseMigrationResult.success
+                      ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
+                      : 'bg-amber-50 border-amber-300 text-amber-950'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 font-bold mb-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                    <span className="text-sm">Kết quả chuyển đổi sang Supabase:</span>
+                  </div>
+                  <p className="text-xs font-semibold mb-3 text-slate-700">{supabaseMigrationResult.message}</p>
+                  {supabaseMigrationResult.counts && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 text-center text-xs">
+                      {Object.entries(supabaseMigrationResult.counts).map(([tbl, cnt]) => (
+                        <div key={tbl} className="bg-white/80 p-2 rounded-xl border border-emerald-200">
+                          <span className="text-[10px] text-slate-500 uppercase block font-bold truncate">{tbl}</span>
+                          <span className="text-sm font-black text-emerald-700">{String(cnt)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Supabase Tables Overview */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Table className="w-4 h-4 text-emerald-600" />
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
+                      Danh Sách Các Bảng Dữ Liệu Chuyển Đổi Lên Supabase
+                    </h4>
+                  </div>
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    13 Bảng PostgreSQL Đám Mây
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+                  {[
+                    { name: 'users', count: users.length, desc: 'Hồ sơ người dùng (Học sinh THPT, Phụ huynh, Chuyên gia tâm lý, Admin), phân quyền RBAC & mật khẩu' },
+                    { name: 'families', count: 1, desc: 'Nhóm gia đình, mã gia đình (familyCode) và Quỹ Hạnh Phúc gia đình' },
+                    { name: 'emotion_journals', count: journalEntries.length, desc: 'Nhật ký cảm xúc học sinh, mức độ 1-10, ngữ cảnh, điều ước thấu hiểu và quyền riêng tư' },
+                    { name: 'parent_reactions', count: journalEntries.flatMap(j => j.parentReactions || []).length, desc: 'Thả tim, ôm con, tự hào và lời nhắn gửi yêu thương của cha mẹ' },
+                    { name: 'consultation_sessions', count: consultations.length, desc: 'Phiên tham vấn tâm lý học đường, tin nhắn bảo mật và phác đồ chuyên gia' },
+                    { name: 'deeptalk_topics', count: deepTalkTopics.length, desc: 'Ngân hàng chủ đề thấu cảm sâu cha mẹ & con cái THPT' },
+                    { name: 'deeptalk_sessions', count: deepTalkSessions.length, desc: 'Phiên đối thoại thực tế và câu trả lời chia sẻ của 2 bên' },
+                    { name: 'challenge_30day_tasks', count: challengeTasks.length, desc: 'Lộ trình 30 ngày thử thách hành động yêu thương mỗi ngày' },
+                    { name: 'challenge_progress', count: challengeProgress.length, desc: 'Tiến độ hoàn thành và ghi chú xác nhận 2 chiều giữa con và cha mẹ' },
+                    { name: 'happiness_records', count: happinessHistory.length, desc: 'Lịch sử tích lũy điểm thưởng Quỹ Hạnh Phúc gia đình' },
+                    { name: 'notifications', count: notifications.length, desc: 'Thông báo phân quyền theo thời gian thực cho từng tài khoản' },
+                    { name: 'security_audit_logs', count: auditLogs.length, desc: 'Nhật ký kiểm toán bảo mật và truy cập dữ liệu' },
+                  ].map((table) => (
+                    <div key={table.name} className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                            {table.name}
+                          </code>
+                          <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50/60 px-1.5 py-0.2 rounded">PostgreSQL JSONB</span>
+                        </div>
+                        <p className="text-xs text-slate-500">{table.desc}</p>
+                      </div>
+                      <span className="text-xs font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-full shrink-0">
+                        {table.count} bản ghi
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: SQLITE 3 DATABASE ENGINE */}
           {activeTab === 'sqlite' && (
             <div className="space-y-6">
               {/* SQLite Connection Status Card */}

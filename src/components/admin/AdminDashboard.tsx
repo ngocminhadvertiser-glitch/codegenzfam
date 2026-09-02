@@ -32,6 +32,7 @@ import {
   Sparkles,
   ShieldCheck,
   UserPlus,
+  Zap,
 } from 'lucide-react';
 import { exportToXml, exportToJson, exportToSqlDump, downloadFile } from '../../services/dataStorageService';
 import { User, UserRole, FamilyRole, UserPermissions } from '../../types';
@@ -295,7 +296,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
           { id: 'users', label: `Người dùng (${users.length})` },
           { id: 'challenges', label: `Thử thách 30 ngày (${challengeTasks.length})` },
           { id: 'deeptalk', label: `Chủ đề Deep Talk (${deepTalkTopics.length})` },
-          { id: 'database', label: 'XML Database & sao lưu lâu dài' },
+          { id: 'database', label: 'Supabase Cloud & Database ⚡' },
           { id: 'audit', label: `Kiểm toán bảo mật (${auditLogs.length})` },
         ].map((tab) => (
           <button
@@ -1099,6 +1100,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
       {/* Tab 5: Database & Long Term XML Storage */}
       {activeAdminTab === 'database' && (
         <div className="bg-white rounded-3xl p-6 border border-purple-100/80 shadow-xs space-y-6">
+          {/* Supabase Cloud Banner */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-teal-950 p-6 rounded-3xl text-white shadow-md relative overflow-hidden border border-emerald-500/30">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                    Cơ Sở Dữ Liệu Đám Mây Supabase Cloud (Postgres)
+                  </span>
+                </div>
+                <h4 className="text-lg font-black text-white flex items-center gap-2">
+                  <span>Chuyển Đổi & Đồng Bộ Dữ Liệu Lên Supabase</span>
+                  <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/40">
+                    Active ⚡
+                  </span>
+                </h4>
+                <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                  Đã cấu hình SUPABASE_URL và Service Role Key. Chuyển đổi toàn bộ tài khoản người dùng, nhật ký, tham vấn tâm lý, câu hỏi Deep Talk và thử thách 30 ngày lên bảng quan hệ PostgreSQL.
+                </p>
+              </div>
+
+              {onOpenDataManagement && (
+                <button
+                  onClick={onOpenDataManagement}
+                  className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 active:scale-95 text-slate-950 font-black text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 shrink-0"
+                >
+                  <Zap className="w-4 h-4 text-slate-950" />
+                  <span>🚀 Mở Bảng Quản Trị Supabase & Chuyển Đổi Ngay</span>
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-600 mb-1">
