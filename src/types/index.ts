@@ -4,6 +4,8 @@ export type FamilyRole = 'student' | 'mother' | 'father' | 'guardian' | 'none';
 
 export type UserStatus = 'active' | 'locked' | 'pending';
 
+export type Gender = 'male' | 'female' | 'other';
+
 export interface UserPermissions {
   canCreateJournal?: boolean;
   canViewFamilyJournals?: boolean;
@@ -24,15 +26,52 @@ export interface User {
   familyRole?: FamilyRole;
   avatar: string;
   familyId?: string;
-  grade?: string; // e.g. "Lớp 11A3 - THPT Chu Văn An"
-  title?: string; // e.g. "ThS. Tâm lý học lâm sàng" (dành cho chuyên gia)
-  bio?: string;
+
+  // Security & Authentication
+  password?: string;
+  mustChangePassword?: boolean;
+  lastPasswordChangedAt?: string;
+  failedLoginAttempts?: number;
+  lockoutUntil?: string;
+
+  // Identity & Demographics
+  gender?: Gender;
+  dateOfBirth?: string; // YYYY-MM-DD
   phone?: string;
+  address?: string;
+  city?: string;
+
+  // Emergency Contact (Critical for youth mental wellness)
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelationship?: string;
+
+  // Student specific
+  schoolName?: string;
+  grade?: string; // e.g. "Lớp 11A3 – THPT Chu Văn An"
+  studentCode?: string;
+  hobbies?: string[];
+
+  // Parent specific
+  occupation?: string;
+  workplace?: string;
+
+  // Psychologist / Professional specific
+  title?: string; // e.g. "ThS. Tâm lý học lâm sàng"
+  organization?: string;
+  licenseNumber?: string;
+  specialization?: string;
+  yearsOfExperience?: number;
+
+  // Status & Verification
+  bio?: string;
   verified?: boolean;
   status?: UserStatus;
+
+  // Audit Timestamps & Permissions
   createdAt?: string;
+  updatedAt?: string;
   lastLoginAt?: string;
-  password?: string;
   permissions?: UserPermissions;
 }
 
@@ -45,20 +84,42 @@ export interface AuthSession {
 export interface RegisterPayload {
   name: string;
   email: string;
-  password?: string;
+  password: string; // Required for realistic security
+  confirmPassword?: string;
   role: UserRole;
   familyRole?: FamilyRole;
   familyCode?: string;
-  grade?: string;
-  title?: string;
-  bio?: string;
+
+  // Demographic & Contact
+  gender?: Gender;
+  dateOfBirth?: string;
   phone?: string;
+  city?: string;
+
+  // Emergency Contact
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelationship?: string;
+
+  // Role specifics
+  schoolName?: string;
+  grade?: string;
+  studentCode?: string;
+  occupation?: string;
+  workplace?: string;
+  title?: string;
+  organization?: string;
+  licenseNumber?: string;
+  specialization?: string;
+  yearsOfExperience?: number;
+
+  bio?: string;
   avatar?: string;
 }
 
 export interface LoginPayload {
   emailOrName: string;
-  password?: string;
+  password: string; // Required
   rememberMe?: boolean;
 }
 

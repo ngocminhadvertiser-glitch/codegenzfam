@@ -74,7 +74,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
     fetchSupabaseSchemaSql,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'sqlite' | 'supabase' | 'export' | 'import' | 'cloud' | 'reset'>('supabase');
+  const [activeTab, setActiveTab] = useState<'sqlite' | 'supabase' | 'export' | 'import' | 'cloud'>('supabase');
   const [xmlContent, setXmlContent] = useState<string>('');
   const [jsonContent, setJsonContent] = useState<string>('');
   const [sqlContent, setSqlContent] = useState<string>('');
@@ -308,7 +308,6 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
             { id: 'export', label: '3. Xuất Tệp (XML / JSON / SQL)', icon: Download },
             { id: 'import', label: '4. Nhập & Khôi Phục (Import XML)', icon: Upload },
             { id: 'cloud', label: '5. Máy Chủ & Đám Mây', icon: Server },
-            { id: 'reset', label: '6. Thiết Lập Lại Demo', icon: RefreshCw },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -949,32 +948,6 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                     </p>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: RESET */}
-          {activeTab === 'reset' && (
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 text-center max-w-xl mx-auto">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-                <RefreshCw className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">
-                  Tái thiết lập cơ sở dữ liệu SQLite ban đầu
-                </h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Hành động này sẽ khởi tạo lại toàn bộ 11 bảng trong SQLite về dữ liệu mẫu THPT chuẩn ban đầu. Bạn có thể tải bản sao lưu SQLite hoặc XML trước khi thực hiện.
-                </p>
-              </div>
-
-              <div className="pt-2 flex items-center justify-center gap-3">
-                <button
-                  onClick={handleReset}
-                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all"
-                >
-                  Xác nhận tái tạo SQLite mẫu
-                </button>
               </div>
             </div>
           )}

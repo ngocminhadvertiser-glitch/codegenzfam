@@ -70,25 +70,46 @@ export const SUPABASE_SCHEMA_SQL = `-- =========================================
 -- Run this in your Supabase SQL Editor: https://supabase.com/dashboard/project/_/sql/new
 -- ============================================================
 
--- 1. Users Table
+-- 1. Users Table (Thực tế, bảo mật, tối ưu cho Học sinh GenZ, Phụ huynh & Chuyên gia)
 CREATE TABLE IF NOT EXISTS public.users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  email TEXT,
+  email TEXT UNIQUE NOT NULL,
   role TEXT NOT NULL,
   family_role TEXT,
   avatar TEXT,
   family_id TEXT,
-  grade TEXT,
-  title TEXT,
-  bio TEXT,
+  password TEXT,
+  must_change_password BOOLEAN DEFAULT false,
+  last_password_changed_at TEXT,
+  failed_login_attempts INTEGER DEFAULT 0,
+  lockout_until TEXT,
+  gender TEXT,
+  date_of_birth TEXT,
   phone TEXT,
+  address TEXT,
+  city TEXT,
+  emergency_contact_name TEXT,
+  emergency_contact_phone TEXT,
+  emergency_contact_relationship TEXT,
+  school_name TEXT,
+  grade TEXT,
+  student_code TEXT,
+  hobbies JSONB DEFAULT '[]'::jsonb,
+  occupation TEXT,
+  workplace TEXT,
+  title TEXT,
+  organization TEXT,
+  license_number TEXT,
+  specialization TEXT,
+  years_of_experience INTEGER,
+  bio TEXT,
   verified BOOLEAN DEFAULT true,
   status TEXT DEFAULT 'active',
+  permissions JSONB DEFAULT '{}'::jsonb,
   created_at TEXT,
-  last_login_at TEXT,
-  password TEXT,
-  permissions JSONB DEFAULT '{}'::jsonb
+  updated_at TEXT,
+  last_login_at TEXT
 );
 
 -- 2. Families Table
@@ -299,20 +320,52 @@ export function mapUserToSupabase(u: User): any {
     family_role: u.familyRole || null,
     avatar: u.avatar || null,
     family_id: u.familyId || null,
-    grade: u.grade || null,
-    title: u.title || null,
-    bio: u.bio || null,
+    password: u.password || null,
+    must_change_password: Boolean(u.mustChangePassword),
+    last_password_changed_at: u.lastPasswordChangedAt || null,
+    failed_login_attempts: u.failedLoginAttempts || 0,
+    lockout_until: u.lockoutUntil || null,
+    gender: u.gender || null,
+    date_of_birth: u.dateOfBirth || null,
     phone: u.phone || null,
+    address: u.address || null,
+    city: u.city || null,
+    emergency_contact_name: u.emergencyContactName || null,
+    emergency_contact_phone: u.emergencyContactPhone || null,
+    emergency_contact_relationship: u.emergencyContactRelationship || null,
+    school_name: u.schoolName || null,
+    grade: u.grade || null,
+    student_code: u.studentCode || null,
+    hobbies: u.hobbies || [],
+    occupation: u.occupation || null,
+    workplace: u.workplace || null,
+    title: u.title || null,
+    organization: u.organization || null,
+    license_number: u.licenseNumber || null,
+    specialization: u.specialization || null,
+    years_of_experience: u.yearsOfExperience || null,
+    bio: u.bio || null,
     verified: u.verified ?? true,
     status: u.status || "active",
-    created_at: u.createdAt || new Date().toISOString(),
-    last_login_at: u.lastLoginAt || new Date().toISOString(),
-    password: u.password || "password123",
     permissions: u.permissions || {},
+    created_at: u.createdAt || new Date().toISOString(),
+    updated_at: u.updatedAt || new Date().toISOString(),
+    last_login_at: u.lastLoginAt || new Date().toISOString(),
   };
 }
 
 export function mapUserFromSupabase(row: any): User {
+  let parsedHobbies: string[] | undefined = undefined;
+  if (Array.isArray(row.hobbies)) {
+    parsedHobbies = row.hobbies;
+  } else if (typeof row.hobbies === "string") {
+    try {
+      parsedHobbies = JSON.parse(row.hobbies);
+    } catch {
+      parsedHobbies = row.hobbies.split(",").map((s: string) => s.trim());
+    }
+  }
+
   return {
     id: row.id,
     name: row.name,
@@ -321,16 +374,37 @@ export function mapUserFromSupabase(row: any): User {
     familyRole: row.family_role || undefined,
     avatar: row.avatar,
     familyId: row.family_id || undefined,
-    grade: row.grade || undefined,
-    title: row.title || undefined,
-    bio: row.bio || undefined,
+    gender: row.gender || undefined,
+    dateOfBirth: row.date_of_birth || undefined,
     phone: row.phone || undefined,
+    address: row.address || undefined,
+    city: row.city || undefined,
+    emergencyContactName: row.emergency_contact_name || undefined,
+    emergencyContactPhone: row.emergency_contact_phone || undefined,
+    emergencyContactRelationship: row.emergency_contact_relationship || undefined,
+    schoolName: row.school_name || undefined,
+    grade: row.grade || undefined,
+    studentCode: row.student_code || undefined,
+    hobbies: parsedHobbies,
+    occupation: row.occupation || undefined,
+    workplace: row.workplace || undefined,
+    title: row.title || undefined,
+    organization: row.organization || undefined,
+    licenseNumber: row.license_number || undefined,
+    specialization: row.specialization || undefined,
+    yearsOfExperience: row.years_of_experience ? Number(row.years_of_experience) : undefined,
+    bio: row.bio || undefined,
     verified: Boolean(row.verified),
     status: row.status || "active",
-    createdAt: row.created_at,
-    lastLoginAt: row.last_login_at,
-    password: row.password,
+    password: row.password || undefined,
+    mustChangePassword: Boolean(row.must_change_password),
+    lastPasswordChangedAt: row.last_password_changed_at || undefined,
+    failedLoginAttempts: row.failed_login_attempts ? Number(row.failed_login_attempts) : undefined,
+    lockoutUntil: row.lockout_until || undefined,
     permissions: typeof row.permissions === "string" ? JSON.parse(row.permissions) : row.permissions || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || undefined,
+    lastLoginAt: row.last_login_at,
   };
 }
 

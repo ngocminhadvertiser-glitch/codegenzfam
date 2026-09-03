@@ -87,20 +87,50 @@ export function mapUserToDb(u: User): Record<string, any> {
     family_role: u.familyRole || null,
     avatar: u.avatar,
     family_id: u.familyId || null,
-    grade: u.grade || null,
-    title: u.title || null,
-    bio: u.bio || null,
+    gender: u.gender || null,
+    date_of_birth: u.dateOfBirth || null,
     phone: u.phone || null,
+    address: u.address || null,
+    city: u.city || null,
+    emergency_contact_name: u.emergencyContactName || null,
+    emergency_contact_phone: u.emergencyContactPhone || null,
+    emergency_contact_relationship: u.emergencyContactRelationship || null,
+    school_name: u.schoolName || null,
+    grade: u.grade || null,
+    student_code: u.studentCode || null,
+    hobbies: u.hobbies || [],
+    occupation: u.occupation || null,
+    workplace: u.workplace || null,
+    title: u.title || null,
+    organization: u.organization || null,
+    license_number: u.licenseNumber || null,
+    specialization: u.specialization || null,
+    years_of_experience: u.yearsOfExperience || null,
+    bio: u.bio || null,
     verified: u.verified !== undefined ? Boolean(u.verified) : true,
     status: u.status || 'active',
+    password: u.password || null,
+    must_change_password: Boolean(u.mustChangePassword),
+    last_password_changed_at: u.lastPasswordChangedAt || null,
     created_at: u.createdAt || new Date().toISOString(),
+    updated_at: u.updatedAt || new Date().toISOString(),
     last_login_at: u.lastLoginAt || new Date().toISOString(),
-    password: u.password || '123456',
     permissions: u.permissions || {},
   };
 }
 
 export function mapUserFromDb(row: any): User {
+  let parsedHobbies: string[] | undefined = undefined;
+  if (Array.isArray(row.hobbies)) {
+    parsedHobbies = row.hobbies;
+  } else if (typeof row.hobbies === 'string') {
+    try {
+      parsedHobbies = JSON.parse(row.hobbies);
+    } catch {
+      parsedHobbies = row.hobbies.split(',').map((s: string) => s.trim());
+    }
+  }
+
   return {
     id: row.id,
     name: row.name || 'Người dùng',
@@ -109,15 +139,34 @@ export function mapUserFromDb(row: any): User {
     familyRole: row.family_role || undefined,
     avatar: row.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     familyId: row.family_id || undefined,
-    grade: row.grade || undefined,
-    title: row.title || undefined,
-    bio: row.bio || undefined,
+    gender: row.gender || undefined,
+    dateOfBirth: row.date_of_birth || undefined,
     phone: row.phone || undefined,
+    address: row.address || undefined,
+    city: row.city || undefined,
+    emergencyContactName: row.emergency_contact_name || undefined,
+    emergencyContactPhone: row.emergency_contact_phone || undefined,
+    emergencyContactRelationship: row.emergency_contact_relationship || undefined,
+    schoolName: row.school_name || undefined,
+    grade: row.grade || undefined,
+    studentCode: row.student_code || undefined,
+    hobbies: parsedHobbies,
+    occupation: row.occupation || undefined,
+    workplace: row.workplace || undefined,
+    title: row.title || undefined,
+    organization: row.organization || undefined,
+    licenseNumber: row.license_number || undefined,
+    specialization: row.specialization || undefined,
+    yearsOfExperience: row.years_of_experience ? Number(row.years_of_experience) : undefined,
+    bio: row.bio || undefined,
     verified: Boolean(row.verified),
     status: row.status || 'active',
-    createdAt: row.created_at || new Date().toISOString(),
-    lastLoginAt: row.last_login_at || new Date().toISOString(),
     password: row.password || undefined,
+    mustChangePassword: Boolean(row.must_change_password),
+    lastPasswordChangedAt: row.last_password_changed_at || undefined,
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || undefined,
+    lastLoginAt: row.last_login_at || new Date().toISOString(),
     permissions: row.permissions || {},
   };
 }

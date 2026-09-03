@@ -130,15 +130,36 @@ function createTables(): void {
       familyRole TEXT,
       avatar TEXT,
       familyId TEXT,
-      grade TEXT,
-      title TEXT,
-      bio TEXT,
+      gender TEXT,
+      dateOfBirth TEXT,
       phone TEXT,
+      address TEXT,
+      city TEXT,
+      emergencyContactName TEXT,
+      emergencyContactPhone TEXT,
+      emergencyContactRelationship TEXT,
+      schoolName TEXT,
+      grade TEXT,
+      studentCode TEXT,
+      hobbies TEXT,
+      occupation TEXT,
+      workplace TEXT,
+      title TEXT,
+      organization TEXT,
+      licenseNumber TEXT,
+      specialization TEXT,
+      yearsOfExperience INTEGER,
+      bio TEXT,
       verified INTEGER DEFAULT 0,
       status TEXT DEFAULT 'active',
       createdAt TEXT,
+      updatedAt TEXT,
       lastLoginAt TEXT,
       password TEXT,
+      mustChangePassword INTEGER DEFAULT 0,
+      lastPasswordChangedAt TEXT,
+      failedLoginAttempts INTEGER DEFAULT 0,
+      lockoutUntil TEXT,
       permissions TEXT -- JSON object of UserPermissions
     );
 
@@ -309,6 +330,43 @@ function createTables(): void {
       updatedAt TEXT
     );
   `);
+
+  // Ensure all new user columns exist if database was previously created
+  try {
+    const userCols = queryAll<any>("PRAGMA table_info(users)").map((c) => c.name);
+    const neededCols: [string, string][] = [
+      ["gender", "TEXT"],
+      ["dateOfBirth", "TEXT"],
+      ["address", "TEXT"],
+      ["city", "TEXT"],
+      ["emergencyContactName", "TEXT"],
+      ["emergencyContactPhone", "TEXT"],
+      ["emergencyContactRelationship", "TEXT"],
+      ["schoolName", "TEXT"],
+      ["studentCode", "TEXT"],
+      ["hobbies", "TEXT"],
+      ["occupation", "TEXT"],
+      ["workplace", "TEXT"],
+      ["organization", "TEXT"],
+      ["licenseNumber", "TEXT"],
+      ["specialization", "TEXT"],
+      ["yearsOfExperience", "INTEGER"],
+      ["updatedAt", "TEXT"],
+      ["mustChangePassword", "INTEGER DEFAULT 0"],
+      ["lastPasswordChangedAt", "TEXT"],
+      ["failedLoginAttempts", "INTEGER DEFAULT 0"],
+      ["lockoutUntil", "TEXT"],
+    ];
+    for (const [col, type] of neededCols) {
+      if (!userCols.includes(col)) {
+        try {
+          dbInstance.run(`ALTER TABLE users ADD COLUMN ${col} ${type};`);
+        } catch {}
+      }
+    }
+  } catch (colErr) {
+    console.warn("[SQLite] Column migration warning:", colErr);
+  }
 }
 
 function seedIfEmpty(): void {
@@ -340,29 +398,7 @@ export function resetDatabaseToSeed(): void {
 
   // 1. Users
   INITIAL_USERS.forEach((u) => {
-    execute(
-      `INSERT INTO users (id, name, email, role, familyRole, avatar, familyId, grade, title, bio, phone, verified, status, createdAt, lastLoginAt, password, permissions)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        u.id,
-        u.name,
-        u.email,
-        u.role,
-        u.familyRole || null,
-        u.avatar,
-        u.familyId || null,
-        u.grade || null,
-        u.title || null,
-        u.bio || null,
-        u.phone || null,
-        u.verified ? 1 : 0,
-        u.status || 'active',
-        u.createdAt || new Date().toISOString(),
-        u.lastLoginAt || null,
-        u.password || 'password123',
-        JSON.stringify(u.permissions || {}),
-      ]
-    );
+    createUser(u);
   });
 
   // 2. Families
@@ -580,31 +616,16 @@ export function resetDatabaseToSeed(): void {
 
 // ---------------- DATABASE GETTERS & OPERATIONS ----------------
 
-export function getAllUsers(): User[] {
-  const rows = queryAll<any>("SELECT * FROM users ORDER BY id");
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    email: r.email,
-    role: r.role,
-    familyRole: r.familyRole || undefined,
-    avatar: r.avatar,
-    familyId: r.familyId || undefined,
-    grade: r.grade || undefined,
-    title: r.title || undefined,
-    bio: r.bio || undefined,
-    phone: r.phone || undefined,
-    verified: Boolean(r.verified),
-    status: r.status || 'active',
-    createdAt: r.createdAt || undefined,
-    lastLoginAt: r.lastLoginAt || undefined,
-    permissions: JSON.parse(r.permissions || '{}'),
-  }));
-}
+export function mapUserFromSqliteRow(r: any): User {
+  let parsedHobbies: string[] | undefined = undefined;
+  if (r.hobbies) {
+    try {
+      parsedHobbies = JSON.parse(r.hobbies);
+    } catch {
+      parsedHobbies = r.hobbies.split(",").map((s: string) => s.trim());
+    }
+  }
 
-export function getUserById(id: string): User | null {
-  const r = queryOne<any>("SELECT * FROM users WHERE id = ?", [id]);
-  if (!r) return null;
   return {
     id: r.id,
     name: r.name,
@@ -613,17 +634,49 @@ export function getUserById(id: string): User | null {
     familyRole: r.familyRole || undefined,
     avatar: r.avatar,
     familyId: r.familyId || undefined,
-    grade: r.grade || undefined,
-    title: r.title || undefined,
-    bio: r.bio || undefined,
+    gender: r.gender || undefined,
+    dateOfBirth: r.dateOfBirth || undefined,
     phone: r.phone || undefined,
+    address: r.address || undefined,
+    city: r.city || undefined,
+    emergencyContactName: r.emergencyContactName || undefined,
+    emergencyContactPhone: r.emergencyContactPhone || undefined,
+    emergencyContactRelationship: r.emergencyContactRelationship || undefined,
+    schoolName: r.schoolName || undefined,
+    grade: r.grade || undefined,
+    studentCode: r.studentCode || undefined,
+    hobbies: parsedHobbies,
+    occupation: r.occupation || undefined,
+    workplace: r.workplace || undefined,
+    title: r.title || undefined,
+    organization: r.organization || undefined,
+    licenseNumber: r.licenseNumber || undefined,
+    specialization: r.specialization || undefined,
+    yearsOfExperience: r.yearsOfExperience ? Number(r.yearsOfExperience) : undefined,
+    bio: r.bio || undefined,
     verified: Boolean(r.verified),
     status: r.status || 'active',
+    password: r.password || undefined,
+    mustChangePassword: Boolean(r.mustChangePassword),
+    lastPasswordChangedAt: r.lastPasswordChangedAt || undefined,
+    failedLoginAttempts: r.failedLoginAttempts ? Number(r.failedLoginAttempts) : undefined,
+    lockoutUntil: r.lockoutUntil || undefined,
     createdAt: r.createdAt || undefined,
+    updatedAt: r.updatedAt || undefined,
     lastLoginAt: r.lastLoginAt || undefined,
-    password: r.password,
     permissions: JSON.parse(r.permissions || '{}'),
   };
+}
+
+export function getAllUsers(): User[] {
+  const rows = queryAll<any>("SELECT * FROM users ORDER BY id");
+  return rows.map(mapUserFromSqliteRow);
+}
+
+export function getUserById(id: string): User | null {
+  const r = queryOne<any>("SELECT * FROM users WHERE id = ?", [id]);
+  if (!r) return null;
+  return mapUserFromSqliteRow(r);
 }
 
 export function findUserByEmailOrName(identifier: string): User | null {
@@ -633,31 +686,21 @@ export function findUserByEmailOrName(identifier: string): User | null {
     [trimmed, trimmed, trimmed]
   );
   if (!r) return null;
-  return {
-    id: r.id,
-    name: r.name,
-    email: r.email,
-    role: r.role,
-    familyRole: r.familyRole || undefined,
-    avatar: r.avatar,
-    familyId: r.familyId || undefined,
-    grade: r.grade || undefined,
-    title: r.title || undefined,
-    bio: r.bio || undefined,
-    phone: r.phone || undefined,
-    verified: Boolean(r.verified),
-    status: r.status || 'active',
-    createdAt: r.createdAt || undefined,
-    lastLoginAt: r.lastLoginAt || undefined,
-    password: r.password,
-    permissions: JSON.parse(r.permissions || '{}'),
-  };
+  return mapUserFromSqliteRow(r);
 }
 
 export function createUser(user: User): void {
   execute(
-    `INSERT INTO users (id, name, email, role, familyRole, avatar, familyId, grade, title, bio, phone, verified, status, createdAt, lastLoginAt, password, permissions)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO users (
+      id, name, email, role, familyRole, avatar, familyId,
+      gender, dateOfBirth, phone, address, city,
+      emergencyContactName, emergencyContactPhone, emergencyContactRelationship,
+      schoolName, grade, studentCode, hobbies,
+      occupation, workplace, title, organization, licenseNumber, specialization, yearsOfExperience,
+      bio, verified, status, createdAt, updatedAt, lastLoginAt,
+      password, mustChangePassword, lastPasswordChangedAt, failedLoginAttempts, lockoutUntil,
+      permissions
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       user.id,
       user.name,
@@ -666,42 +709,136 @@ export function createUser(user: User): void {
       user.familyRole || null,
       user.avatar,
       user.familyId || null,
-      user.grade || null,
-      user.title || null,
-      user.bio || null,
+      user.gender || null,
+      user.dateOfBirth || null,
       user.phone || null,
+      user.address || null,
+      user.city || null,
+      user.emergencyContactName || null,
+      user.emergencyContactPhone || null,
+      user.emergencyContactRelationship || null,
+      user.schoolName || null,
+      user.grade || null,
+      user.studentCode || null,
+      JSON.stringify(user.hobbies || []),
+      user.occupation || null,
+      user.workplace || null,
+      user.title || null,
+      user.organization || null,
+      user.licenseNumber || null,
+      user.specialization || null,
+      user.yearsOfExperience || null,
+      user.bio || null,
       user.verified ? 1 : 0,
       user.status || 'active',
       user.createdAt || new Date().toISOString(),
+      user.updatedAt || new Date().toISOString(),
       user.lastLoginAt || null,
-      user.password || 'password123',
+      user.password || null,
+      user.mustChangePassword ? 1 : 0,
+      user.lastPasswordChangedAt || null,
+      user.failedLoginAttempts || 0,
+      user.lockoutUntil || null,
       JSON.stringify(user.permissions || {}),
     ]
   );
 }
 
 export function updateUser(user: User): void {
-  execute(
-    `UPDATE users 
-     SET name = ?, email = ?, role = ?, familyRole = ?, avatar = ?, familyId = ?, grade = ?, title = ?, bio = ?, phone = ?, verified = ?, status = ?, permissions = ?
-     WHERE id = ?`,
-    [
-      user.name,
-      user.email,
-      user.role,
-      user.familyRole || null,
-      user.avatar,
-      user.familyId || null,
-      user.grade || null,
-      user.title || null,
-      user.bio || null,
-      user.phone || null,
-      user.verified ? 1 : 0,
-      user.status || 'active',
-      JSON.stringify(user.permissions || {}),
-      user.id,
-    ]
-  );
+  const now = new Date().toISOString();
+  if (user.password) {
+    execute(
+      `UPDATE users 
+       SET name = ?, email = ?, password = ?, mustChangePassword = ?, lastPasswordChangedAt = ?,
+           role = ?, familyRole = ?, avatar = ?, familyId = ?,
+           gender = ?, dateOfBirth = ?, phone = ?, address = ?, city = ?,
+           emergencyContactName = ?, emergencyContactPhone = ?, emergencyContactRelationship = ?,
+           schoolName = ?, grade = ?, studentCode = ?, hobbies = ?,
+           occupation = ?, workplace = ?, title = ?, organization = ?, licenseNumber = ?, specialization = ?, yearsOfExperience = ?,
+           bio = ?, verified = ?, status = ?, updatedAt = ?, permissions = ?
+       WHERE id = ?`,
+      [
+        user.name,
+        user.email,
+        user.password,
+        user.mustChangePassword ? 1 : 0,
+        user.lastPasswordChangedAt || now,
+        user.role,
+        user.familyRole || null,
+        user.avatar,
+        user.familyId || null,
+        user.gender || null,
+        user.dateOfBirth || null,
+        user.phone || null,
+        user.address || null,
+        user.city || null,
+        user.emergencyContactName || null,
+        user.emergencyContactPhone || null,
+        user.emergencyContactRelationship || null,
+        user.schoolName || null,
+        user.grade || null,
+        user.studentCode || null,
+        JSON.stringify(user.hobbies || []),
+        user.occupation || null,
+        user.workplace || null,
+        user.title || null,
+        user.organization || null,
+        user.licenseNumber || null,
+        user.specialization || null,
+        user.yearsOfExperience || null,
+        user.bio || null,
+        user.verified ? 1 : 0,
+        user.status || 'active',
+        user.updatedAt || now,
+        JSON.stringify(user.permissions || {}),
+        user.id,
+      ]
+    );
+  } else {
+    execute(
+      `UPDATE users 
+       SET name = ?, email = ?, role = ?, familyRole = ?, avatar = ?, familyId = ?,
+           gender = ?, dateOfBirth = ?, phone = ?, address = ?, city = ?,
+           emergencyContactName = ?, emergencyContactPhone = ?, emergencyContactRelationship = ?,
+           schoolName = ?, grade = ?, studentCode = ?, hobbies = ?,
+           occupation = ?, workplace = ?, title = ?, organization = ?, licenseNumber = ?, specialization = ?, yearsOfExperience = ?,
+           bio = ?, verified = ?, status = ?, updatedAt = ?, permissions = ?
+       WHERE id = ?`,
+      [
+        user.name,
+        user.email,
+        user.role,
+        user.familyRole || null,
+        user.avatar,
+        user.familyId || null,
+        user.gender || null,
+        user.dateOfBirth || null,
+        user.phone || null,
+        user.address || null,
+        user.city || null,
+        user.emergencyContactName || null,
+        user.emergencyContactPhone || null,
+        user.emergencyContactRelationship || null,
+        user.schoolName || null,
+        user.grade || null,
+        user.studentCode || null,
+        JSON.stringify(user.hobbies || []),
+        user.occupation || null,
+        user.workplace || null,
+        user.title || null,
+        user.organization || null,
+        user.licenseNumber || null,
+        user.specialization || null,
+        user.yearsOfExperience || null,
+        user.bio || null,
+        user.verified ? 1 : 0,
+        user.status || 'active',
+        user.updatedAt || now,
+        JSON.stringify(user.permissions || {}),
+        user.id,
+      ]
+    );
+  }
 }
 
 export function updateUserLastLogin(id: string): void {
@@ -713,7 +850,7 @@ export function updateUserStatus(id: string, status: string): void {
 }
 
 export function resetUserPassword(id: string, newPassword: string): void {
-  execute("UPDATE users SET password = ? WHERE id = ?", [newPassword, id]);
+  execute("UPDATE users SET password = ?, mustChangePassword = 1, lastPasswordChangedAt = ? WHERE id = ?", [newPassword, new Date().toISOString(), id]);
 }
 
 export function deleteUser(id: string): void {

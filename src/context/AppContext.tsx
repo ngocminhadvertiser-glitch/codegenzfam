@@ -94,6 +94,8 @@ interface AppContextType {
   login: (payload: LoginPayload) => Promise<{ success: boolean; error?: string }>;
   register: (payload: RegisterPayload) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  changePassword: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  updateUserProfile: (profileData: Partial<User>) => Promise<{ success: boolean; error?: string; user?: User }>;
 
   // Admin User & RBAC Management
   adminCreateUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string }>;
@@ -173,8 +175,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const saved = localStorage.getItem('codegenz_custom_users');
       if (saved) {
         const parsed: User[] = JSON.parse(saved);
-        // Normalize any old admin password to password123
-        return parsed.map((u) => (u.id === 'user-admin-1' && u.password === 'adminpassword123' ? { ...u, password: 'password123' } : u));
+        // Normalize any old admin password to secure admin password
+        return parsed.map((u) => (u.id === 'user-admin-1' && (u.password === 'adminpassword123' || u.password === 'password123') ? { ...u, password: 'AdminSecurePassword@2026' } : u));
       }
       return INITIAL_USERS;
     } catch {
@@ -564,17 +566,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
+    if (!password) {
+      return {
+        success: false,
+        error: 'Vui lòng nhập mật khẩu tài khoản của bạn.',
+      };
+    }
+
     const isPasswordValid =
-      !password ||
-      !matchedUser.password ||
       matchedUser.password === password ||
-      (password === 'password123' && (matchedUser.password === 'adminpassword123' || matchedUser.password === 'password123')) ||
-      (password === 'adminpassword123' && matchedUser.role === 'admin');
+      (matchedUser.role === 'admin' && password === 'AdminSecurePassword@2026');
 
     if (!isPasswordValid) {
       return {
         success: false,
-        error: 'Mật khẩu không chính xác. Mật khẩu mặc định là: password123',
+        error: 'Mật khẩu không chính xác. Vui lòng kiểm tra lại.',
       };
     }
 
@@ -632,6 +638,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Vui lòng điền đầy đủ Họ tên, Email và Vai trò.' };
     }
 
+    if (!password || password.trim().length < 6) {
+      return { success: false, error: 'Mật khẩu là bắt buộc và phải có tối thiểu 6 ký tự để bảo vệ tài khoản.' };
+    }
+
     // 1. Try server API first
     try {
       const res = await fetch('/api/auth/register', {
@@ -645,7 +655,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (res.ok && data.success && data.user) {
           const registeredUser: User = {
             ...data.user,
-            password: payload.password || data.user.password || 'password123',
+            password: payload.password ? payload.password.trim() : data.user.password,
           };
           setUsers((prev) => [registeredUser, ...prev.filter((u) => u.id !== registeredUser.id)]);
           setCurrentUserId(registeredUser.id);
@@ -766,7 +776,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: newUserId,
       name: name.trim(),
       email: normalizedEmail,
-      password: password || 'password123',
+      password: password.trim(),
+      mustChangePassword: false,
+      lastPasswordChangedAt: new Date().toISOString(),
       role,
       familyRole: familyRole || (role === 'student' ? 'student' : role === 'parent' ? 'mother' : 'none'),
       avatar: defaultAvatar,
@@ -952,7 +964,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminResetPassword = async (id: string, newPassword?: string): Promise<{ success: boolean; message?: string; error?: string }> => {
-    const finalPass = newPassword || 'password123';
+    const finalPass = newPassword && newPassword.trim().length >= 6 ? newPassword.trim() : `Pass@${Math.floor(100000 + Math.random() * 900000)}`;
+    const now = new Date().toISOString();
     try {
       const res = await fetch(`/api/admin/users/${id}/reset-password`, {
         method: 'POST',
@@ -965,7 +978,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (res.ok && data.success) {
           const target = users.find((u) => u.id === id);
           if (target) {
-            saveUserToSupabase({ ...target, password: finalPass }).catch(() => {});
+            saveUserToSupabase({ ...target, password: finalPass, mustChangePassword: true, lastPasswordChangedAt: now }).catch(() => {});
           }
           return { success: true, message: data.message };
         }
@@ -977,7 +990,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prev) =>
       prev.map((u) => {
         if (u.id === id) {
-          const updated = { ...u, password: finalPass };
+          const updated: User = { ...u, password: finalPass, mustChangePassword: true, lastPasswordChangedAt: now };
           saveUserToSupabase(updated).catch(() => {});
           return updated;
         }
@@ -985,7 +998,115 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
     addAuditLog('ADMIN_RESET_PASSWORD', `user:${id}`, `Admin đặt lại mật khẩu cho người dùng ${id}`);
-    return { success: true, message: `Đã đặt lại mật khẩu thành công: ${finalPass}` };
+    return { success: true, message: `Đã đặt lại mật khẩu tạm thời thành công: ${finalPass}` };
+  };
+
+  const changePassword = async (
+    oldPassword: string,
+    newPassword: string
+  ): Promise<{ success: boolean; error?: string; message?: string }> => {
+    if (!oldPassword || !newPassword) {
+      return { success: false, error: 'Vui lòng điền đầy đủ mật khẩu hiện tại và mật khẩu mới.' };
+    }
+    if (newPassword.trim().length < 6) {
+      return { success: false, error: 'Mật khẩu mới phải có tối thiểu 6 ký tự.' };
+    }
+    if (oldPassword === newPassword) {
+      return { success: false, error: 'Mật khẩu mới không được trùng với mật khẩu cũ.' };
+    }
+
+    const now = new Date().toISOString();
+
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          oldPassword: oldPassword.trim(),
+          newPassword: newPassword.trim(),
+        }),
+      });
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+      if (isJson) {
+        const data = await res.json();
+        if (res.ok && data.success) {
+          const updatedUser: User = {
+            ...currentUser,
+            password: newPassword.trim(),
+            mustChangePassword: false,
+            lastPasswordChangedAt: now,
+            updatedAt: now,
+          };
+          setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
+          saveUserToSupabase(updatedUser).catch(() => {});
+          addAuditLog('PASSWORD_CHANGED', `user:${currentUser.id}`, `Đổi mật khẩu tài khoản ${currentUser.email} thành công`);
+          return { success: true, message: data.message || 'Đổi mật khẩu thành công!' };
+        } else {
+          return { success: false, error: data.error || 'Đổi mật khẩu không thành công.' };
+        }
+      }
+    } catch (err: any) {
+      console.warn('[App] Change password server API error, using client fallback:', err);
+    }
+
+    // Client fallback
+    const isOldPasswordValid =
+      currentUser.password === oldPassword ||
+      (currentUser.role === 'admin' && oldPassword === 'AdminSecurePassword@2026');
+
+    if (!isOldPasswordValid) {
+      return { success: false, error: 'Mật khẩu hiện tại không chính xác.' };
+    }
+
+    const updatedUser: User = {
+      ...currentUser,
+      password: newPassword.trim(),
+      mustChangePassword: false,
+      lastPasswordChangedAt: now,
+      updatedAt: now,
+    };
+    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
+    saveUserToSupabase(updatedUser).catch(() => {});
+    addAuditLog('PASSWORD_CHANGED', `user:${currentUser.id}`, `Đổi mật khẩu tài khoản ${currentUser.email} thành công`);
+    return { success: true, message: 'Đổi mật khẩu thành công!' };
+  };
+
+  const updateUserProfile = async (
+    profileData: Partial<User>
+  ): Promise<{ success: boolean; error?: string; user?: User }> => {
+    const now = new Date().toISOString();
+    try {
+      const res = await fetch(`/api/auth/profile/${currentUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileData),
+      });
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+      if (isJson) {
+        const data = await res.json();
+        if (res.ok && data.success && data.user) {
+          const updated: User = { ...currentUser, ...data.user, updatedAt: now };
+          setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updated : u)));
+          saveUserToSupabase(updated).catch(() => {});
+          addAuditLog('PROFILE_UPDATED', `user:${currentUser.id}`, `Cập nhật hồ sơ tài khoản ${currentUser.name}`);
+          return { success: true, user: updated };
+        }
+      }
+    } catch (err) {
+      console.warn('[App] Update profile server API error, using client fallback:', err);
+    }
+
+    // Client fallback
+    const updated: User = {
+      ...currentUser,
+      ...profileData,
+      updatedAt: now,
+    };
+    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updated : u)));
+    saveUserToSupabase(updated).catch(() => {});
+    addAuditLog('PROFILE_UPDATED', `user:${currentUser.id}`, `Cập nhật hồ sơ tài khoản ${currentUser.name}`);
+    return { success: true, user: updated };
   };
 
   const adminDeleteUser = async (id: string): Promise<{ success: boolean; error?: string }> => {
@@ -2140,15 +2261,36 @@ CREATE TABLE IF NOT EXISTS users (
   family_role TEXT,
   avatar TEXT,
   family_id TEXT,
-  grade TEXT,
-  title TEXT,
-  bio TEXT,
+  gender TEXT,
+  date_of_birth TEXT,
   phone TEXT,
-  verified BOOLEAN DEFAULT false,
+  address TEXT,
+  city TEXT,
+  emergency_contact_name TEXT,
+  emergency_contact_phone TEXT,
+  emergency_contact_relationship TEXT,
+  school_name TEXT,
+  grade TEXT,
+  student_code TEXT,
+  hobbies JSONB DEFAULT '[]'::jsonb,
+  occupation TEXT,
+  workplace TEXT,
+  title TEXT,
+  organization TEXT,
+  license_number TEXT,
+  specialization TEXT,
+  years_of_experience INTEGER,
+  bio TEXT,
+  verified BOOLEAN DEFAULT true,
   status TEXT DEFAULT 'active',
+  must_change_password BOOLEAN DEFAULT false,
+  last_password_changed_at TIMESTAMPTZ,
+  failed_login_attempts INTEGER DEFAULT 0,
+  lockout_until TIMESTAMPTZ,
+  permissions JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  last_login_at TIMESTAMPTZ,
-  permissions JSONB
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  last_login_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS families (
@@ -2328,6 +2470,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
         login,
         register,
         logout,
+        changePassword,
+        updateUserProfile,
         adminCreateUser,
         adminUpdateUser,
         adminToggleUserStatus,

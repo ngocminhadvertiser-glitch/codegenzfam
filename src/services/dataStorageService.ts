@@ -217,14 +217,32 @@ export function exportToSqlDump(db: AppFullDatabase): string {
   sql += `CREATE TABLE IF NOT EXISTS users (\n`;
   sql += `  id VARCHAR(64) PRIMARY KEY,\n`;
   sql += `  name VARCHAR(255) NOT NULL,\n`;
-  sql += `  email VARCHAR(255),\n`;
+  sql += `  email VARCHAR(255) UNIQUE NOT NULL,\n`;
   sql += `  role VARCHAR(32) NOT NULL,\n`;
   sql += `  family_role VARCHAR(32),\n`;
   sql += `  avatar TEXT,\n`;
   sql += `  family_id VARCHAR(64),\n`;
+  sql += `  gender VARCHAR(16),\n`;
+  sql += `  date_of_birth VARCHAR(32),\n`;
+  sql += `  phone VARCHAR(32),\n`;
+  sql += `  address TEXT,\n`;
+  sql += `  city VARCHAR(128),\n`;
+  sql += `  emergency_contact_name VARCHAR(255),\n`;
+  sql += `  emergency_contact_phone VARCHAR(32),\n`;
+  sql += `  emergency_contact_relationship VARCHAR(64),\n`;
+  sql += `  school_name VARCHAR(255),\n`;
   sql += `  grade VARCHAR(128),\n`;
+  sql += `  student_code VARCHAR(64),\n`;
+  sql += `  occupation VARCHAR(128),\n`;
+  sql += `  workplace VARCHAR(255),\n`;
   sql += `  title VARCHAR(128),\n`;
-  sql += `  verified BOOLEAN DEFAULT FALSE\n`;
+  sql += `  organization VARCHAR(255),\n`;
+  sql += `  license_number VARCHAR(64),\n`;
+  sql += `  specialization VARCHAR(128),\n`;
+  sql += `  years_of_experience INT,\n`;
+  sql += `  bio TEXT,\n`;
+  sql += `  verified BOOLEAN DEFAULT TRUE,\n`;
+  sql += `  status VARCHAR(32) DEFAULT 'active'\n`;
   sql += `);\n\n`;
 
   sql += `CREATE TABLE IF NOT EXISTS families (\n`;
@@ -266,7 +284,7 @@ export function exportToSqlDump(db: AppFullDatabase): string {
   // Insert Users
   db.users.forEach((u) => {
     const esc = (s: any) => `'${String(s || '').replace(/'/g, "''")}'`;
-    sql += `INSERT INTO users (id, name, email, role, family_role, avatar, family_id, grade, title, verified) VALUES (${esc(u.id)}, ${esc(u.name)}, ${esc(u.email)}, ${esc(u.role)}, ${esc(u.familyRole)}, ${esc(u.avatar)}, ${esc(u.familyId)}, ${esc(u.grade)}, ${esc(u.title)}, ${u.verified ? 'TRUE' : 'FALSE'}) ON CONFLICT (id) DO NOTHING;\n`;
+    sql += `INSERT INTO users (id, name, email, role, family_role, avatar, family_id, gender, date_of_birth, phone, address, city, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, school_name, grade, student_code, occupation, workplace, title, organization, license_number, specialization, years_of_experience, bio, verified, status) VALUES (${esc(u.id)}, ${esc(u.name)}, ${esc(u.email)}, ${esc(u.role)}, ${esc(u.familyRole)}, ${esc(u.avatar)}, ${esc(u.familyId)}, ${esc(u.gender)}, ${esc(u.dateOfBirth)}, ${esc(u.phone)}, ${esc(u.address)}, ${esc(u.city)}, ${esc(u.emergencyContactName)}, ${esc(u.emergencyContactPhone)}, ${esc(u.emergencyContactRelationship)}, ${esc(u.schoolName)}, ${esc(u.grade)}, ${esc(u.studentCode)}, ${esc(u.occupation)}, ${esc(u.workplace)}, ${esc(u.title)}, ${esc(u.organization)}, ${esc(u.licenseNumber)}, ${esc(u.specialization)}, ${u.yearsOfExperience || 'NULL'}, ${esc(u.bio)}, ${u.verified ? 'TRUE' : 'FALSE'}, ${esc(u.status || 'active')}) ON CONFLICT (id) DO NOTHING;\n`;
   });
   sql += `\n`;
 

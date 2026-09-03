@@ -18,8 +18,11 @@ import {
   LogOut,
   ShieldAlert,
   Stethoscope,
+  User as UserIcon,
+  KeyRound,
 } from 'lucide-react';
 import { CodeGenzLogo, CodeGenzMascot } from './Logo';
+import { UserProfileModal } from './profile/UserProfileModal';
 
 interface HeaderProps {
   onOpenPrivacy: () => void;
@@ -53,6 +56,8 @@ export const Header: React.FC<HeaderProps> = ({
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileModalTab, setProfileModalTab] = useState<'profile' | 'security'>('profile');
 
   const unreadCount = notifications.filter((n) => !n.isRead && n.userId === currentUser.id).length;
   const userNotifs = notifications.filter((n) => n.userId === currentUser.id);
@@ -433,46 +438,49 @@ export const Header: React.FC<HeaderProps> = ({
                           </button>
                         </div>
 
-                        {/* Fast Switch User Header */}
-                        <div className="px-3 py-1.5 border-t border-slate-100 mt-1 mb-1">
-                          <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
-                            Chuyển đổi tài khoản nhanh
-                          </p>
-                        </div>
+                        {/* Profile & Security Options */}
+                        <div className="space-y-1.5 border-t border-slate-100 pt-2 px-1">
+                          <button
+                            id="menu-open-profile-btn"
+                            onClick={() => {
+                              setShowUserDropdown(false);
+                              setProfileModalTab('profile');
+                              setShowProfileModal(true);
+                            }}
+                            className="w-full flex items-center justify-between p-2.5 rounded-xl text-left hover:bg-indigo-50/70 border border-slate-100 transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                              <UserIcon className="w-4 h-4 text-indigo-600" />
+                              <span>Hồ sơ cá nhân & Thông tin</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400">Xem & Sửa</span>
+                          </button>
 
-                        {/* Fast Switch User List */}
-                        <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
-                          {users.map((user) => (
-                            <button
-                              key={user.id}
-                              onClick={() => {
-                                switchUser(user.id);
-                                setShowUserDropdown(false);
-                              }}
-                              className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-colors ${
-                                user.id === currentUser.id ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-slate-50'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <img
-                                  src={user.avatar}
-                                  alt={user.name}
-                                  className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
-                                />
-                                <div className="min-w-0">
-                                  <div className="text-xs font-bold text-slate-900 truncate">{user.name}</div>
-                                  <div className="text-[10px] text-slate-500 truncate">
-                                    {user.grade || user.title || (user.role === 'parent' ? 'Phụ huynh' : user.role)}
-                                  </div>
-                                </div>
-                              </div>
-                              {user.id === currentUser.id ? (
-                                <UserCheck className="w-4 h-4 text-indigo-600 shrink-0" />
-                              ) : (
-                                <div className="shrink-0">{getRoleBadge(user.role)}</div>
-                              )}
-                            </button>
-                          ))}
+                          <button
+                            id="menu-open-security-btn"
+                            onClick={() => {
+                              setShowUserDropdown(false);
+                              setProfileModalTab('security');
+                              setShowProfileModal(true);
+                            }}
+                            className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left border transition-colors cursor-pointer ${
+                              currentUser.mustChangePassword
+                                ? 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+                                : 'hover:bg-slate-50 border-slate-100'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                              <KeyRound className="w-4 h-4 text-purple-600" />
+                              <span>Đổi mật khẩu & Bảo mật</span>
+                            </div>
+                            {currentUser.mustChangePassword ? (
+                              <span className="text-[10px] font-bold text-amber-700 bg-amber-200/80 px-2 py-0.5 rounded-md">
+                                Cần đổi
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">Bảo mật</span>
+                            )}
+                          </button>
                         </div>
 
                         {/* Logout Option in dropdown */}
@@ -512,6 +520,13 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </div>
+
+      {/* User Profile & Password Security Modal */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        defaultTab={profileModalTab}
+      />
     </header>
   );
 };

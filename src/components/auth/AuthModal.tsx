@@ -67,6 +67,11 @@ export const AuthModal: React.FC = () => {
       return;
     }
 
+    if (!loginEmail.trim() || !loginPassword) {
+      setErrorMsg('Vui lòng nhập đầy đủ Email/Tên đăng nhập và Mật khẩu.');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -88,8 +93,8 @@ export const AuthModal: React.FC = () => {
       setErrorMsg('Vui lòng nhập Họ tên và Email.');
       return;
     }
-    if (regPassword && regPassword.length < 6) {
-      setErrorMsg('Mật khẩu tối thiểu 6 ký tự.');
+    if (!regPassword || regPassword.length < 6) {
+      setErrorMsg('Mật khẩu là bắt buộc và phải có tối thiểu 6 ký tự để bảo vệ tài khoản.');
       return;
     }
     if (regPassword !== regConfirmPassword) {
@@ -104,7 +109,7 @@ export const AuthModal: React.FC = () => {
     const res = await register({
       name: regName.trim(),
       email: regEmail.trim(),
-      password: regPassword || 'password123',
+      password: regPassword.trim(),
       role: regRole,
       familyRole: regRole === 'student' ? 'student' : regRole === 'parent' ? regFamilyRole : 'none',
       familyCode: regFamilyCode.trim() || undefined,

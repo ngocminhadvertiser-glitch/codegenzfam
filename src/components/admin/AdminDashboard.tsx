@@ -73,7 +73,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
   // New User Form State
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserPassword, setNewUserPassword] = useState('password123');
+  const [newUserPassword, setNewUserPassword] = useState(`Pass@${Math.floor(100000 + Math.random() * 900000)}`);
   const [newUserRole, setNewUserRole] = useState<UserRole>('student');
   const [newUserFamilyRole, setNewUserFamilyRole] = useState<FamilyRole>('student');
   const [newUserGrade, setNewUserGrade] = useState('');
@@ -153,11 +153,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
       showBanner('error', 'Vui lòng nhập Họ tên và Email.');
       return;
     }
+    if (!newUserPassword || newUserPassword.trim().length < 6) {
+      showBanner('error', 'Mật khẩu phải có tối thiểu 6 ký tự.');
+      return;
+    }
 
     const res = await adminCreateUser({
       name: newUserName.trim(),
       email: newUserEmail.trim().toLowerCase(),
-      password: newUserPassword,
+      password: newUserPassword.trim(),
       role: newUserRole,
       familyRole: newUserFamilyRole,
       grade: newUserGrade || undefined,
@@ -169,10 +173,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
     });
 
     if (res.success) {
-      showBanner('success', `Đã tạo tài khoản ${newUserName} thành công.`);
+      showBanner('success', `Đã tạo tài khoản ${newUserName} thành công với mật khẩu thiết lập.`);
       setShowAddUserModal(false);
       setNewUserName('');
       setNewUserEmail('');
+      setNewUserPassword(`Pass@${Math.floor(100000 + Math.random() * 900000)}`);
       setNewUserGrade('');
       setNewUserTitle('');
       setNewUserBio('');
@@ -230,9 +235,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
   };
 
   const handleResetUserPass = async (user: User) => {
-    const newPass = prompt(`Nhập mật khẩu mới cho ${user.name}:`, 'password123');
+    const defaultSuggestion = `Pass@${Math.floor(100000 + Math.random() * 900000)}`;
+    const newPass = prompt(`Nhập mật khẩu mới cho ${user.name} (tối thiểu 6 ký tự):`, defaultSuggestion);
     if (!newPass) return;
-    const res = await adminResetPassword(user.id, newPass);
+    if (newPass.trim().length < 6) {
+      showBanner('error', 'Mật khẩu mới phải có tối thiểu 6 ký tự.');
+      return;
+    }
+    const res = await adminResetPassword(user.id, newPass.trim());
     if (res.success) {
       showBanner('success', res.message || `Đã đặt lại mật khẩu cho ${user.name}.`);
     } else {

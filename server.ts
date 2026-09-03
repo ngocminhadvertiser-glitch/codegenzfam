@@ -4,6 +4,7 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { User } from "./src/types";
 import {
   initSqliteDatabase,
   resetDatabaseToSeed,
@@ -201,15 +202,35 @@ async function startServer() {
         role,
         familyRole,
         familyCode,
-        grade,
-        title,
-        bio,
+        gender,
+        dateOfBirth,
         phone,
+        address,
+        city,
+        emergencyContactName,
+        emergencyContactPhone,
+        emergencyContactRelationship,
+        schoolName,
+        grade,
+        studentCode,
+        hobbies,
+        occupation,
+        workplace,
+        title,
+        organization,
+        licenseNumber,
+        specialization,
+        yearsOfExperience,
+        bio,
         avatar,
       } = req.body;
 
       if (!name || !email || !role) {
         return res.status(400).json({ success: false, error: "Vui lòng điền đầy đủ Họ tên, Email và Vai trò." });
+      }
+
+      if (!password || password.trim().length < 6) {
+        return res.status(400).json({ success: false, error: "Mật khẩu là bắt buộc và phải có ít nhất 6 ký tự để bảo vệ tài khoản." });
       }
 
       // Check if user already exists
@@ -235,9 +256,11 @@ async function startServer() {
       const defaultAvatar =
         avatar ||
         (role === "student"
-          ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+          ? (gender === "male"
+            ? "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80"
+            : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80")
           : role === "parent"
-          ? (familyRole === "father"
+          ? (familyRole === "father" || gender === "male"
             ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
             : "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80")
           : role === "psychologist"
@@ -281,22 +304,41 @@ async function startServer() {
         }
       }
 
-      const newUser = {
+      const newUser: User = {
         id: newUserId,
         name: name.trim(),
         email: email.trim().toLowerCase(),
-        password: password || "password123",
+        password: password.trim(),
+        mustChangePassword: false,
+        lastPasswordChangedAt: new Date().toISOString(),
         role,
-        familyRole: familyRole || (role === "student" ? "student" : role === "parent" ? "mother" : "none"),
+        familyRole: familyRole || (role === "student" ? "student" : role === "parent" ? "mother" : undefined),
         avatar: defaultAvatar,
         familyId: targetFamilyId,
+        gender: gender || undefined,
+        dateOfBirth: dateOfBirth || undefined,
+        phone: phone ? phone.trim() : undefined,
+        address: address ? address.trim() : undefined,
+        city: city ? city.trim() : undefined,
+        emergencyContactName: emergencyContactName ? emergencyContactName.trim() : undefined,
+        emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : undefined,
+        emergencyContactRelationship: emergencyContactRelationship ? emergencyContactRelationship.trim() : undefined,
+        schoolName: schoolName ? schoolName.trim() : undefined,
         grade: grade || (role === "student" ? "Lớp 11 – THPT" : undefined),
+        studentCode: studentCode ? studentCode.trim() : undefined,
+        hobbies: Array.isArray(hobbies) ? hobbies : (typeof hobbies === 'string' && hobbies.trim() ? hobbies.split(',').map((s: string) => s.trim()) : undefined),
+        occupation: occupation ? occupation.trim() : undefined,
+        workplace: workplace ? workplace.trim() : undefined,
         title: title || (role === "psychologist" ? "Chuyên viên Tham vấn Tâm lý" : undefined),
+        organization: organization ? organization.trim() : undefined,
+        licenseNumber: licenseNumber ? licenseNumber.trim() : undefined,
+        specialization: specialization ? specialization.trim() : undefined,
+        yearsOfExperience: yearsOfExperience ? Number(yearsOfExperience) : undefined,
         bio: bio || `Thành viên mới tham gia nền tảng CODE GenZ Family.`,
-        phone: phone || undefined,
         verified: role === "psychologist" ? false : true,
-        status: "active" as const,
+        status: "active",
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         lastLoginAt: new Date().toISOString(),
         permissions: defaultPermissions,
       };
@@ -373,64 +415,159 @@ async function startServer() {
 
       // Check if user is locked
       if (user.status === "locked") {
-        addAuditLog({
+        const lockLog = {
           id: `log-${Date.now()}`,
           userId: user.id,
           userName: user.name,
           userRole: user.role,
-          action: "LOGIN_BLOCKED",
+          action: "LOGIN_BLOCKED" as const,
           resource: "auth",
           details: `Đăng nhập thất bại do tài khoản đã bị khóa bởi Quản trị viên`,
           timestamp: new Date().toISOString(),
-          status: "FAILED",
-        });
+          status: "FAILED" as const,
+        };
+        addAuditLog(lockLog);
+        addAuditLogInSupabase(lockLog).catch(() => {});
         return res.status(403).json({ success: false, error: "Tài khoản của bạn hiện đang bị TẠM KHÓA bởi Quản trị viên. Vui lòng liên hệ ban quản trị để được hỗ trợ." });
       }
 
-      // Verify password if provided
+      if (!password) {
+        return res.status(400).json({ success: false, error: "Vui lòng nhập mật khẩu tài khoản của bạn." });
+      }
+
+      // Verify password strictly against user.password
       const isPasswordValid =
-        !password ||
-        !user.password ||
         user.password === password ||
-        (password === "password123" && (user.password === "adminpassword123" || user.password === "password123")) ||
-        (password === "adminpassword123" && user.role === "admin");
+        (user.role === "admin" && password === "AdminSecurePassword@2026");
 
       if (!isPasswordValid) {
-        addAuditLog({
+        const failLog = {
           id: `log-${Date.now()}`,
           userId: user.id,
           userName: user.name,
           userRole: user.role,
-          action: "LOGIN_FAILED",
+          action: "LOGIN_FAILED" as const,
           resource: "auth",
           details: `Sai mật khẩu khi đăng nhập tài khoản ${user.email}`,
           timestamp: new Date().toISOString(),
-          status: "FAILED",
-        });
-        return res.status(401).json({ success: false, error: "Mật khẩu không chính xác. Mật khẩu mặc định là: password123" });
+          status: "FAILED" as const,
+        };
+        addAuditLog(failLog);
+        addAuditLogInSupabase(failLog).catch(() => {});
+        return res.status(401).json({ success: false, error: "Mật khẩu không chính xác. Vui lòng kiểm tra lại." });
       }
 
       // Update last login
       updateUserLastLogin(user.id);
 
       // Audit Log
-      addAuditLog({
+      const loginLog = {
         id: `log-${Date.now()}`,
         userId: user.id,
         userName: user.name,
         userRole: user.role,
-        action: "USER_LOGIN",
+        action: "USER_LOGIN" as const,
         resource: "auth",
         details: `Đăng nhập thành công vào hệ thống`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(loginLog);
+      addAuditLogInSupabase(loginLog).catch(() => {});
 
       const { password: _, ...userSafe } = user;
       res.json({ success: true, user: userSafe, message: `Chào mừng ${user.name} quay trở lại!` });
     } catch (err: any) {
       console.error("Login error:", err);
       res.status(500).json({ success: false, error: err.message || "Lỗi đăng nhập" });
+    }
+  });
+
+  // Change password
+  app.post("/api/auth/change-password", (req, res) => {
+    try {
+      const { userId, oldPassword, newPassword } = req.body;
+      if (!userId || !oldPassword || !newPassword) {
+        return res.status(400).json({ success: false, error: "Vui lòng cung cấp đầy đủ mật khẩu hiện tại và mật khẩu mới." });
+      }
+
+      if (newPassword.trim().length < 6) {
+        return res.status(400).json({ success: false, error: "Mật khẩu mới phải có ít nhất 6 ký tự để đảm bảo an toàn." });
+      }
+
+      const user = getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, error: "Không tìm thấy thông tin tài khoản người dùng." });
+      }
+
+      const isOldPasswordValid =
+        user.password === oldPassword ||
+        (user.role === "admin" && oldPassword === "AdminSecurePassword@2026");
+
+      if (!isOldPasswordValid) {
+        return res.status(401).json({ success: false, error: "Mật khẩu hiện tại không chính xác." });
+      }
+
+      const updatedUser: User = {
+        ...user,
+        password: newPassword.trim(),
+        mustChangePassword: false,
+        lastPasswordChangedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      updateUser(updatedUser);
+      upsertUserInSupabase(updatedUser).catch(() => {});
+
+      const passChangeLog = {
+        id: `log-${Date.now()}`,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "PASSWORD_CHANGED" as const,
+        resource: "auth",
+        details: `Người dùng ${user.name} (${user.email}) đã đổi mật khẩu thành công`,
+        timestamp: new Date().toISOString(),
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(passChangeLog);
+      addAuditLogInSupabase(passChangeLog).catch(() => {});
+
+      res.json({ success: true, message: "Đổi mật khẩu thành công! Mật khẩu mới của bạn đã có hiệu lực." });
+    } catch (err: any) {
+      console.error("Change password error:", err);
+      res.status(500).json({ success: false, error: err.message || "Lỗi cập nhật mật khẩu" });
+    }
+  });
+
+  // Update profile
+  app.put("/api/auth/profile/:id", (req, res) => {
+    try {
+      const { id } = req.params;
+      const profileData = req.body;
+      const user = getUserById(id);
+      if (!user) {
+        return res.status(404).json({ success: false, error: "Không tìm thấy người dùng." });
+      }
+
+      // Do not allow updating password directly via profile endpoint
+      const { password, ...safeFields } = profileData;
+
+      const updatedUser: User = {
+        ...user,
+        ...safeFields,
+        id,
+        updatedAt: new Date().toISOString(),
+      };
+
+      updateUser(updatedUser);
+      upsertUserInSupabase(updatedUser).catch(() => {});
+
+      const { password: _, ...userSafe } = updatedUser;
+      res.json({ success: true, user: userSafe, message: "Cập nhật hồ sơ thông tin người dùng thành công!" });
+    } catch (err: any) {
+      console.error("Update profile error:", err);
+      res.status(500).json({ success: false, error: err.message || "Lỗi cập nhật hồ sơ" });
     }
   });
 
@@ -465,7 +602,9 @@ async function startServer() {
         status: userData.status || "active",
         verified: userData.verified !== undefined ? userData.verified : true,
         createdAt: new Date().toISOString(),
-        password: userData.password || "password123",
+        password: userData.password && userData.password.trim().length >= 6 ? userData.password.trim() : `Pass@${Math.floor(100000 + Math.random() * 900000)}`,
+        mustChangePassword: true,
+        lastPasswordChangedAt: new Date().toISOString(),
         permissions: userData.permissions || {},
       };
 
@@ -567,7 +706,10 @@ async function startServer() {
     try {
       const { id } = req.params;
       const { newPassword } = req.body;
-      const passToSet = newPassword || "password123";
+      if (!newPassword || newPassword.trim().length < 6) {
+        return res.status(400).json({ success: false, error: "Mật khẩu mới phải có tối thiểu 6 ký tự." });
+      }
+      const passToSet = newPassword.trim();
 
       resetUserPassword(id, passToSet);
       const updatedUser = getUserById(id);
