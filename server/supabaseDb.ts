@@ -112,6 +112,14 @@ CREATE TABLE IF NOT EXISTS public.users (
   last_login_at TEXT
 );
 
+-- Tự động bổ sung các cột bảo mật mới nếu bảng users đã được tạo từ trước trên Supabase
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS last_password_changed_at TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS lockout_until TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{}'::jsonb;
+
 -- 2. Families Table
 CREATE TABLE IF NOT EXISTS public.families (
   id TEXT PRIMARY KEY,

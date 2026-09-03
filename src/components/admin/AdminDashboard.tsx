@@ -451,6 +451,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
                   <th className="p-3.5">Người dùng & Email</th>
                   <th className="p-3.5">Vai trò</th>
                   <th className="p-3.5">Trạng thái</th>
+                  <th className="p-3.5">Bảo mật mật khẩu</th>
                   <th className="p-3.5">Quyền hạn (RBAC)</th>
                   <th className="p-3.5 text-right">Thao tác quản trị</th>
                 </tr>
@@ -458,7 +459,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
               <tbody className="divide-y divide-slate-100 bg-white">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-slate-400 italic">
+                    <td colSpan={6} className="p-8 text-center text-slate-400 italic">
                       Không tìm thấy người dùng phù hợp với tiêu chí lọc.
                     </td>
                   </tr>
@@ -527,6 +528,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenDataManage
                               <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Hoạt động
                             </span>
                           )}
+                        </td>
+
+                        <td className="p-3.5">
+                          <div>
+                            {u.mustChangePassword ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-700 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-md">
+                                <KeyRound className="w-3 h-3 text-amber-600" /> Cần đổi MK
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                <ShieldCheck className="w-3 h-3 text-emerald-600" /> Đã cập nhật MK
+                              </span>
+                            )}
+                            {u.lastPasswordChangedAt ? (
+                              <span className="text-[10px] text-slate-400 block mt-0.5">
+                                Đổi: {new Date(u.lastPasswordChangedAt).toLocaleDateString('vi-VN')}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 block mt-0.5">
+                                Chưa đổi lần đầu
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         <td className="p-3.5">

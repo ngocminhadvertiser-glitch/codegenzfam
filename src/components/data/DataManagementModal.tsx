@@ -418,6 +418,34 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                   <p className="text-[11px] text-slate-400">
                     💡 Bạn có thể dán đoạn mã SQL trên vào mục <strong>SQL Editor</strong> trên Supabase Dashboard nếu muốn kiểm tra cấu trúc bảng quan hệ PostgreSQL.
                   </p>
+
+                  <div className="pt-3 border-t border-slate-800">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-bold text-amber-300">
+                        ⚡ Lệnh cập nhật cột mới (ALTER TABLE) nếu bảng users đã có từ trước:
+                      </span>
+                      <button
+                        onClick={() => handleCopy(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS last_password_changed_at TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS lockout_until TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{}'::jsonb;`, 'alter-sql')}
+                        className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[10px] rounded flex items-center gap-1 transition-colors"
+                      >
+                        {copiedType === 'alter-sql' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedType === 'alter-sql' ? 'Đã chép lệnh!' : 'Chép lệnh ALTER TABLE'}</span>
+                      </button>
+                    </div>
+                    <pre className="text-[10px] font-mono text-amber-200 bg-slate-950/80 p-2.5 rounded-lg border border-amber-500/20 overflow-x-auto">
+{`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS last_password_changed_at TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS lockout_until TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{}'::jsonb;`}
+                    </pre>
+                  </div>
                 </div>
               )}
 
