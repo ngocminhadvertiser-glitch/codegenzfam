@@ -287,7 +287,7 @@ async function startServer() {
 
       const newUserId = `user-${role}-${Date.now().toString(36)}`;
       let targetFamilyId: string | undefined = undefined;
-      let targetFamilyObj: Family | undefined = undefined;
+      let targetFamilyObj: any = undefined;
 
       if (role === "student") {
         if (familyCode && familyCode.trim()) {
@@ -537,7 +537,7 @@ async function startServer() {
       // Update last login in Supabase and SQLite
       updateUserLastLogin(user.id);
       if (supa) {
-        supa.from("users").update({ last_login_at: new Date().toISOString() }).eq("id", user.id).then(() => {}).catch(() => {});
+        supa.from("users").update({ last_login_at: new Date().toISOString() }).eq("id", user.id).then(() => {}, () => {});
       }
 
       // Audit Log

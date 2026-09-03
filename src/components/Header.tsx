@@ -22,7 +22,6 @@ import {
   KeyRound,
 } from 'lucide-react';
 import { CodeGenzLogo, CodeGenzMascot } from './Logo';
-import { UserProfileModal } from './profile/UserProfileModal';
 
 interface HeaderProps {
   onOpenPrivacy: () => void;
@@ -49,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
     markAllNotificationsRead,
     setActiveTab,
     openAuthModal,
+    openProfileModal,
     logout,
     isAuthenticated,
   } = useApp();
@@ -56,8 +56,6 @@ export const Header: React.FC<HeaderProps> = ({
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [profileModalTab, setProfileModalTab] = useState<'profile' | 'security'>('profile');
 
   const unreadCount = notifications.filter((n) => !n.isRead && n.userId === currentUser.id).length;
   const userNotifs = notifications.filter((n) => n.userId === currentUser.id);
@@ -336,15 +334,29 @@ export const Header: React.FC<HeaderProps> = ({
                     {showUserDropdown && (
                       <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-2 overflow-hidden">
                         {/* User Profile Header */}
-                        <div className="p-3 bg-gradient-to-br from-slate-50 to-indigo-50/40 rounded-xl border border-slate-100 mb-2">
+                        <div
+                          onClick={() => {
+                            setShowUserDropdown(false);
+                            openProfileModal('profile');
+                          }}
+                          className="p-3 bg-gradient-to-br from-slate-50 to-indigo-50/40 hover:from-indigo-50/60 hover:to-indigo-100/50 rounded-xl border border-slate-100 mb-2 cursor-pointer transition-colors group"
+                          title="Bấm để xem và chỉnh sửa hồ sơ cá nhân"
+                        >
                           <div className="flex items-center gap-3">
                             <img
                               src={currentUser.avatar}
                               alt={currentUser.name}
-                              className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm"
+                              className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm group-hover:scale-105 transition-transform"
                             />
                             <div className="min-w-0 flex-1">
-                              <h4 className="text-xs font-bold text-slate-900 truncate">{currentUser.name}</h4>
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-xs font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                                  {currentUser.name}
+                                </h4>
+                                <span className="text-[10px] text-indigo-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                                  Xem hồ sơ &rarr;
+                                </span>
+                              </div>
                               <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>
                               <div className="flex items-center gap-1.5 mt-1">
                                 {getRoleBadge(currentUser.role)}
@@ -444,8 +456,7 @@ export const Header: React.FC<HeaderProps> = ({
                             id="menu-open-profile-btn"
                             onClick={() => {
                               setShowUserDropdown(false);
-                              setProfileModalTab('profile');
-                              setShowProfileModal(true);
+                              openProfileModal('profile');
                             }}
                             className="w-full flex items-center justify-between p-2.5 rounded-xl text-left hover:bg-indigo-50/70 border border-slate-100 transition-colors cursor-pointer"
                           >
@@ -460,8 +471,7 @@ export const Header: React.FC<HeaderProps> = ({
                             id="menu-open-security-btn"
                             onClick={() => {
                               setShowUserDropdown(false);
-                              setProfileModalTab('security');
-                              setShowProfileModal(true);
+                              openProfileModal('security');
                             }}
                             className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left border transition-colors cursor-pointer ${
                               currentUser.mustChangePassword
@@ -520,13 +530,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </div>
-
-      {/* User Profile & Password Security Modal */}
-      <UserProfileModal
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        defaultTab={profileModalTab}
-      />
     </header>
   );
 };

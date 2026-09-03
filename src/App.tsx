@@ -20,10 +20,20 @@ import { PrivacySecurityModal } from './components/privacy/PrivacySecurityModal'
 import { DataManagementModal } from './components/data/DataManagementModal';
 import { FamilyManagementModal } from './components/family/FamilyManagementModal';
 import { AuthModal } from './components/auth/AuthModal';
+import { UserProfileModal } from './components/profile/UserProfileModal';
 import { Sparkles, MessageCircle, Heart, ShieldCheck, Database, Users } from 'lucide-react';
 
 const MainApp: React.FC = () => {
-  const { currentUser, activeTab, setActiveTab, isAuthenticated, openAuthModal } = useApp();
+  const {
+    currentUser,
+    activeTab,
+    setActiveTab,
+    isAuthenticated,
+    openAuthModal,
+    isProfileModalOpen,
+    profileModalTab,
+    closeProfileModal,
+  } = useApp();
 
   // Modal States
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
@@ -338,6 +348,13 @@ const MainApp: React.FC = () => {
       />
 
       <AuthModal />
+
+      {/* User Profile & Password Security Modal (Root Level Portal) */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={closeProfileModal}
+        defaultTab={profileModalTab}
+      />
     </div>
   );
 };

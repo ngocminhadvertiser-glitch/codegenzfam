@@ -91,6 +91,11 @@ interface AppContextType {
   authModalTab: 'login' | 'register';
   openAuthModal: (tab?: 'login' | 'register') => void;
   closeAuthModal: () => void;
+  // Profile modal & Security
+  isProfileModalOpen: boolean;
+  profileModalTab: 'profile' | 'security';
+  openProfileModal: (tab?: 'profile' | 'security') => void;
+  closeProfileModal: () => void;
   login: (payload: LoginPayload) => Promise<{ success: boolean; error?: string }>;
   register: (payload: RegisterPayload) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
@@ -484,6 +489,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const closeAuthModal = () => {
     setAuthModalOpen(false);
+  };
+
+  // User Profile modal state
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+  const [profileModalTab, setProfileModalTab] = useState<'profile' | 'security'>('profile');
+
+  const openProfileModal = (tab: 'profile' | 'security' = 'profile') => {
+    setProfileModalTab(tab);
+    setIsProfileModalOpen(true);
+  };
+
+  const closeProfileModal = () => {
+    setIsProfileModalOpen(false);
   };
 
   const login = async (payload: LoginPayload): Promise<{ success: boolean; error?: string }> => {
@@ -2467,6 +2485,11 @@ CREATE TABLE IF NOT EXISTS audit_logs (
         authModalTab,
         openAuthModal,
         closeAuthModal,
+        // Profile modal & Security
+        isProfileModalOpen,
+        profileModalTab,
+        openProfileModal,
+        closeProfileModal,
         login,
         register,
         logout,
