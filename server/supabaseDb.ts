@@ -319,7 +319,46 @@ ALTER TABLE public.security_audit_logs DISABLE ROW LEVEL SECURITY;
 // DATA MAPPER HELPERS (CamelCase <-> Snake_Case & JSONB)
 // ==========================================
 
+// Global cache of pruned columns per table so subsequent upserts are instantaneous
+const cachedServerInvalidColumns = new Map<string, Set<string>>();
+
 export function mapUserToSupabase(u: User): any {
+  const profileMeta: Record<string, any> = {
+    gender: u.gender,
+    dateOfBirth: u.dateOfBirth,
+    phone: u.phone,
+    address: u.address,
+    city: u.city,
+    emergencyContactName: u.emergencyContactName,
+    emergencyContactPhone: u.emergencyContactPhone,
+    emergencyContactRelationship: u.emergencyContactRelationship,
+    schoolName: u.schoolName,
+    studentCode: u.studentCode,
+    hobbies: u.hobbies,
+    occupation: u.occupation,
+    workplace: u.workplace,
+    organization: u.organization,
+    licenseNumber: u.licenseNumber,
+    specialization: u.specialization,
+    yearsOfExperience: u.yearsOfExperience,
+    bio: u.bio,
+    status: u.status || "active",
+    createdAt: u.createdAt || new Date().toISOString(),
+    updatedAt: u.updatedAt || new Date().toISOString(),
+    lastLoginAt: u.lastLoginAt || new Date().toISOString(),
+  };
+
+  const permissions: Record<string, any> = {
+    ...(typeof u.permissions === "string" ? JSON.parse(u.permissions) : (u.permissions || {})),
+    __meta: profileMeta,
+    phone: u.phone,
+    bio: u.bio,
+    grade: u.grade,
+    schoolName: u.schoolName,
+    gender: u.gender,
+    status: u.status || "active",
+  };
+
   return {
     id: u.id,
     name: u.name,
@@ -328,49 +367,31 @@ export function mapUserToSupabase(u: User): any {
     family_role: u.familyRole || null,
     avatar: u.avatar || null,
     family_id: u.familyId || null,
+    grade: u.grade || null,
+    title: u.title || null,
+    verified: u.verified ?? true,
     password: u.password || null,
     must_change_password: Boolean(u.mustChangePassword),
     last_password_changed_at: u.lastPasswordChangedAt || null,
     failed_login_attempts: u.failedLoginAttempts || 0,
     lockout_until: u.lockoutUntil || null,
-    gender: u.gender || null,
-    date_of_birth: u.dateOfBirth || null,
-    phone: u.phone || null,
-    address: u.address || null,
-    city: u.city || null,
-    emergency_contact_name: u.emergencyContactName || null,
-    emergency_contact_phone: u.emergencyContactPhone || null,
-    emergency_contact_relationship: u.emergencyContactRelationship || null,
-    school_name: u.schoolName || null,
-    grade: u.grade || null,
-    student_code: u.studentCode || null,
-    hobbies: u.hobbies || [],
-    occupation: u.occupation || null,
-    workplace: u.workplace || null,
-    title: u.title || null,
-    organization: u.organization || null,
-    license_number: u.licenseNumber || null,
-    specialization: u.specialization || null,
-    years_of_experience: u.yearsOfExperience || null,
-    bio: u.bio || null,
-    verified: u.verified ?? true,
-    status: u.status || "active",
-    permissions: u.permissions || {},
-    created_at: u.createdAt || new Date().toISOString(),
-    updated_at: u.updatedAt || new Date().toISOString(),
-    last_login_at: u.lastLoginAt || new Date().toISOString(),
+    permissions,
   };
 }
 
 export function mapUserFromSupabase(row: any): User {
+  const meta = (row.permissions && row.permissions.__meta) || {};
+  const perm = row.permissions || {};
+
   let parsedHobbies: string[] | undefined = undefined;
-  if (Array.isArray(row.hobbies)) {
-    parsedHobbies = row.hobbies;
-  } else if (typeof row.hobbies === "string") {
+  const rawHobbies = row.hobbies || meta.hobbies || perm.hobbies;
+  if (Array.isArray(rawHobbies)) {
+    parsedHobbies = rawHobbies;
+  } else if (typeof rawHobbies === "string") {
     try {
-      parsedHobbies = JSON.parse(row.hobbies);
+      parsedHobbies = JSON.parse(rawHobbies);
     } catch {
-      parsedHobbies = row.hobbies.split(",").map((s: string) => s.trim());
+      parsedHobbies = rawHobbies.split(",").map((s: string) => s.trim());
     }
   }
 
@@ -379,40 +400,40 @@ export function mapUserFromSupabase(row: any): User {
     name: row.name,
     email: row.email,
     role: row.role,
-    familyRole: row.family_role || undefined,
+    familyRole: row.family_role || meta.familyRole || undefined,
     avatar: row.avatar,
-    familyId: row.family_id || undefined,
-    gender: row.gender || undefined,
-    dateOfBirth: row.date_of_birth || undefined,
-    phone: row.phone || undefined,
-    address: row.address || undefined,
-    city: row.city || undefined,
-    emergencyContactName: row.emergency_contact_name || undefined,
-    emergencyContactPhone: row.emergency_contact_phone || undefined,
-    emergencyContactRelationship: row.emergency_contact_relationship || undefined,
-    schoolName: row.school_name || undefined,
-    grade: row.grade || undefined,
-    studentCode: row.student_code || undefined,
+    familyId: row.family_id || meta.familyId || undefined,
+    gender: row.gender || meta.gender || perm.gender || undefined,
+    dateOfBirth: row.date_of_birth || meta.dateOfBirth || undefined,
+    phone: row.phone || meta.phone || perm.phone || undefined,
+    address: row.address || meta.address || undefined,
+    city: row.city || meta.city || undefined,
+    emergencyContactName: row.emergency_contact_name || meta.emergencyContactName || undefined,
+    emergencyContactPhone: row.emergency_contact_phone || meta.emergencyContactPhone || undefined,
+    emergencyContactRelationship: row.emergency_contact_relationship || meta.emergencyContactRelationship || undefined,
+    schoolName: row.school_name || meta.schoolName || perm.schoolName || undefined,
+    grade: row.grade || meta.grade || perm.grade || undefined,
+    studentCode: row.student_code || meta.studentCode || undefined,
     hobbies: parsedHobbies,
-    occupation: row.occupation || undefined,
-    workplace: row.workplace || undefined,
-    title: row.title || undefined,
-    organization: row.organization || undefined,
-    licenseNumber: row.license_number || undefined,
-    specialization: row.specialization || undefined,
-    yearsOfExperience: row.years_of_experience ? Number(row.years_of_experience) : undefined,
-    bio: row.bio || undefined,
+    occupation: row.occupation || meta.occupation || undefined,
+    workplace: row.workplace || meta.workplace || undefined,
+    title: row.title || meta.title || undefined,
+    organization: row.organization || meta.organization || undefined,
+    licenseNumber: row.license_number || meta.licenseNumber || undefined,
+    specialization: row.specialization || meta.specialization || undefined,
+    yearsOfExperience: row.years_of_experience ? Number(row.years_of_experience) : (meta.yearsOfExperience ? Number(meta.yearsOfExperience) : undefined),
+    bio: row.bio || meta.bio || perm.bio || undefined,
     verified: Boolean(row.verified),
-    status: row.status || "active",
+    status: row.status || meta.status || perm.status || "active",
     password: row.password || undefined,
     mustChangePassword: Boolean(row.must_change_password),
     lastPasswordChangedAt: row.last_password_changed_at || undefined,
     failedLoginAttempts: row.failed_login_attempts ? Number(row.failed_login_attempts) : undefined,
     lockoutUntil: row.lockout_until || undefined,
     permissions: typeof row.permissions === "string" ? JSON.parse(row.permissions) : row.permissions || {},
-    createdAt: row.created_at,
-    updatedAt: row.updated_at || undefined,
-    lastLoginAt: row.last_login_at,
+    createdAt: row.created_at || meta.createdAt || new Date().toISOString(),
+    updatedAt: row.updated_at || meta.updatedAt || undefined,
+    lastLoginAt: row.last_login_at || meta.lastLoginAt || new Date().toISOString(),
   };
 }
 
@@ -421,13 +442,9 @@ export function mapFamilyToSupabase(f: Family): any {
     id: f.id,
     name: f.name,
     family_code: f.familyCode,
-    student_ids: f.studentIds || [],
-    parent_ids: f.parentIds || [],
     happiness_points: f.happinessPoints ?? 0,
     streak_days: f.streakDays ?? 0,
     created_at: f.createdAt || new Date().toISOString(),
-    avatar_icon: f.avatarIcon || "🏡",
-    description: f.description || "",
   };
 }
 
@@ -1024,11 +1041,32 @@ export async function resilientServerUpsert(
   const client = getSupabaseClient();
   if (!client) return false;
   let currentPayload = { ...payload };
+
+  // Strip known invalid columns first
+  const invalidCols = cachedServerInvalidColumns.get(table);
+  if (invalidCols) {
+    for (const col of invalidCols) {
+      if (col in currentPayload) {
+        delete currentPayload[col];
+      }
+    }
+  }
+
   try {
-    for (let attempt = 0; attempt < 12; attempt++) {
+    for (let attempt = 0; attempt < 50; attempt++) {
       const { error } = await client.from(table).upsert(currentPayload, { onConflict });
       if (!error) {
         return true;
+      }
+
+      // If table itself does not exist in Supabase schema yet
+      if (
+        error.code === 'PGRST205' ||
+        error.message.includes('relation') ||
+        error.message.includes('does not exist') && error.message.includes('table')
+      ) {
+        console.warn(`[Supabase Server Table Missing] Table '${table}' does not exist in Supabase yet: ${error.message}`);
+        return false;
       }
 
       // Check if error is due to an unrecognized column in schema
@@ -1037,7 +1075,11 @@ export async function resilientServerUpsert(
       const colName = (m1 && m1[1]) || (m2 && m2[1]);
 
       if (colName && colName in currentPayload) {
-        console.warn(`[Supabase Server auto-prune] Table ${table} does not have column '${colName}', removing and retrying...`);
+        console.warn(`[Supabase Server auto-prune] Table ${table} does not have column '${colName}', caching and retrying...`);
+        if (!cachedServerInvalidColumns.has(table)) {
+          cachedServerInvalidColumns.set(table, new Set());
+        }
+        cachedServerInvalidColumns.get(table)!.add(colName);
         delete currentPayload[colName];
       } else {
         console.warn(`[Supabase Server upsert error on ${table}]:`, error.message);
@@ -1051,45 +1093,51 @@ export async function resilientServerUpsert(
   }
 }
 
-export async function upsertUserInSupabase(user: User): Promise<void> {
-  await resilientServerUpsert("users", mapUserToSupabase(user), "id");
+export async function upsertUserInSupabase(user: User): Promise<boolean> {
+  return resilientServerUpsert("users", mapUserToSupabase(user), "id");
 }
 
-export async function deleteUserInSupabase(userId: string): Promise<void> {
+export async function deleteUserInSupabase(userId: string): Promise<boolean> {
   const client = getSupabaseClient();
-  if (!client) return;
+  if (!client) return false;
   try {
-    await client.from("users").delete().eq("id", userId);
+    const { error } = await client.from("users").delete().eq("id", userId);
+    return !error;
   } catch (err) {
     console.warn("[Supabase] deleteUser error:", err);
+    return false;
   }
 }
 
-export async function upsertFamilyInSupabase(family: Family): Promise<void> {
-  await resilientServerUpsert("families", mapFamilyToSupabase(family), "id");
+export async function upsertFamilyInSupabase(family: Family): Promise<boolean> {
+  return resilientServerUpsert("families", mapFamilyToSupabase(family), "id");
 }
 
-export async function deleteFamilyInSupabase(familyId: string): Promise<void> {
+export async function deleteFamilyInSupabase(familyId: string): Promise<boolean> {
   const client = getSupabaseClient();
-  if (!client) return;
+  if (!client) return false;
   try {
-    await client.from("families").delete().eq("id", familyId);
+    const { error } = await client.from("families").delete().eq("id", familyId);
+    return !error;
   } catch (err) {
     console.warn("[Supabase] deleteFamily error:", err);
+    return false;
   }
 }
 
-export async function upsertJournalInSupabase(entry: EmotionJournalEntry): Promise<void> {
-  await resilientServerUpsert("emotion_journals", mapJournalToSupabase(entry), "id");
+export async function upsertJournalInSupabase(entry: EmotionJournalEntry): Promise<boolean> {
+  return resilientServerUpsert("emotion_journals", mapJournalToSupabase(entry), "id");
 }
 
-export async function deleteJournalInSupabase(journalId: string): Promise<void> {
+export async function deleteJournalInSupabase(journalId: string): Promise<boolean> {
   const client = getSupabaseClient();
-  if (!client) return;
+  if (!client) return false;
   try {
-    await client.from("emotion_journals").delete().eq("id", journalId);
+    const { error } = await client.from("emotion_journals").delete().eq("id", journalId);
+    return !error;
   } catch (err) {
     console.warn("[Supabase] deleteJournal error:", err);
+    return false;
   }
 }
 

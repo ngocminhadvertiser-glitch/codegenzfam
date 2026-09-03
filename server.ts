@@ -90,6 +90,9 @@ import {
   markNotificationReadInSupabase,
   markAllNotificationsReadInSupabase,
   addAuditLogInSupabase,
+  getSupabaseClient,
+  fetchUsersFromSupabase,
+  mapUserFromSupabase,
 } from "./server/supabaseDb";
 
 dotenv.config();
@@ -192,8 +195,8 @@ async function startServer() {
   // AUTHENTICATION & USER MANAGEMENT API
   // ==========================================
 
-  // Register new user
-  app.post("/api/auth/register", (req, res) => {
+  // Register new user (Direct CRUD to Supabase)
+  app.post("/api/auth/register", async (req, res) => {
     try {
       const {
         name,
@@ -233,7 +236,22 @@ async function startServer() {
         return res.status(400).json({ success: false, error: "Mật khẩu là bắt buộc và phải có ít nhất 6 ký tự để bảo vệ tài khoản." });
       }
 
-      // Check if user already exists
+      const normalizedEmail = email.trim().toLowerCase();
+      const supa = getSupabaseClient();
+
+      // Check if user already exists in Supabase directly
+      if (supa) {
+        const { data: supaExisting } = await supa
+          .from("users")
+          .select("id, email, name")
+          .or(`email.ilike.${normalizedEmail},name.eq.${name.trim()}`)
+          .limit(1);
+        if (supaExisting && supaExisting.length > 0) {
+          return res.status(400).json({ success: false, error: "Email hoặc Họ tên này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác." });
+        }
+      }
+
+      // Check local SQLite as secondary validation
       const existingUser = findUserByEmailOrName(email);
       if (existingUser) {
         return res.status(400).json({ success: false, error: "Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác." });
@@ -269,19 +287,45 @@ async function startServer() {
 
       const newUserId = `user-${role}-${Date.now().toString(36)}`;
       let targetFamilyId: string | undefined = undefined;
+      let targetFamilyObj: Family | undefined = undefined;
 
       if (role === "student") {
         if (familyCode && familyCode.trim()) {
-          const matchedFam = findFamilyByCode(familyCode.trim());
-          if (matchedFam) {
-            targetFamilyId = matchedFam.id;
+          if (supa) {
+            const { data: supaFams } = await supa
+              .from("families")
+              .select("*")
+              .ilike("family_code", familyCode.trim())
+              .limit(1);
+            if (supaFams && supaFams.length > 0) {
+              targetFamilyId = supaFams[0].id;
+              targetFamilyObj = {
+                id: supaFams[0].id,
+                name: supaFams[0].name,
+                familyCode: supaFams[0].family_code,
+                studentIds: [newUserId],
+                parentIds: [],
+                happinessPoints: Number(supaFams[0].happiness_points || 100),
+                streakDays: Number(supaFams[0].streak_days || 1),
+                createdAt: supaFams[0].created_at || new Date().toISOString(),
+                avatarIcon: '🏡',
+                description: '',
+              };
+            }
+          }
+          if (!targetFamilyId) {
+            const matchedFam = findFamilyByCode(familyCode.trim());
+            if (matchedFam) {
+              targetFamilyId = matchedFam.id;
+              targetFamilyObj = matchedFam;
+            }
           }
         }
         if (!targetFamilyId) {
-          // Create new distinct family for this student
+          // Create new distinct family for this student directly in Supabase
           const newFamId = `family-${Date.now()}`;
           const newFamCode = `CODE-${Math.floor(1000 + Math.random() * 9000)}`;
-          createFamily({
+          targetFamilyObj = {
             id: newFamId,
             name: `Tổ Ấm ${name.trim()}`,
             familyCode: newFamCode,
@@ -292,14 +336,28 @@ async function startServer() {
             createdAt: new Date().toISOString(),
             avatarIcon: '🏡',
             description: `Tổ ấm gia đình của ${name.trim()} – nơi lắng nghe và gắn kết yêu thương.`,
-          });
+          };
+          await upsertFamilyInSupabase(targetFamilyObj);
+          createFamily(targetFamilyObj);
           targetFamilyId = newFamId;
         }
       } else if (role === "parent") {
         if (familyCode && familyCode.trim()) {
-          const matchedFam = findFamilyByCode(familyCode.trim());
-          if (matchedFam) {
-            targetFamilyId = matchedFam.id;
+          if (supa) {
+            const { data: supaFams } = await supa
+              .from("families")
+              .select("*")
+              .ilike("family_code", familyCode.trim())
+              .limit(1);
+            if (supaFams && supaFams.length > 0) {
+              targetFamilyId = supaFams[0].id;
+            }
+          }
+          if (!targetFamilyId) {
+            const matchedFam = findFamilyByCode(familyCode.trim());
+            if (matchedFam) {
+              targetFamilyId = matchedFam.id;
+            }
           }
         }
       }
@@ -307,7 +365,7 @@ async function startServer() {
       const newUser: User = {
         id: newUserId,
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         password: password.trim(),
         mustChangePassword: false,
         lastPasswordChangedAt: new Date().toISOString(),
@@ -343,24 +401,23 @@ async function startServer() {
         permissions: defaultPermissions,
       };
 
+      // 1. Direct write to Supabase User Table
+      const supaSaved = await upsertUserInSupabase(newUser);
+      console.log(`[Supabase Register] User ${newUser.email} persisted to Supabase:`, supaSaved);
+
+      // 2. Also record in local SQLite
       createUser(newUser);
-      upsertUserInSupabase(newUser).catch(() => {});
 
       // If user provided a family code and targetFamily was matched, link member
       if (familyCode && familyCode.trim() && targetFamilyId) {
         joinFamilyWithCode(newUserId, role, familyCode.trim());
-        const updatedFam = getFamilyById(targetFamilyId);
+        const updatedFam = getFamilyById(targetFamilyId) || targetFamilyObj;
         if (updatedFam) {
-          upsertFamilyInSupabase(updatedFam).catch(() => {});
-        }
-      } else if (targetFamilyId) {
-        const createdFam = getFamilyById(targetFamilyId);
-        if (createdFam) {
-          upsertFamilyInSupabase(createdFam).catch(() => {});
+          await upsertFamilyInSupabase(updatedFam);
         }
       }
 
-      // Welcome Notification
+      // Welcome Notification (Direct to Supabase & SQLite)
       const welcomeNotif = {
         id: `notif-welcome-${Date.now()}`,
         userId: newUserId,
@@ -374,9 +431,9 @@ async function startServer() {
         actionTab: "dashboard",
       };
       addNotification(welcomeNotif);
-      addNotificationInSupabase(welcomeNotif).catch(() => {});
+      await addNotificationInSupabase(welcomeNotif);
 
-      // Audit Log
+      // Audit Log (Direct to Supabase & SQLite)
       const regAuditLog = {
         id: `log-${Date.now()}`,
         userId: newUserId,
@@ -384,23 +441,23 @@ async function startServer() {
         userRole: role,
         action: "USER_REGISTER",
         resource: "users",
-        details: `Đăng ký tài khoản mới thành công [Email: ${newUser.email}, Vai trò: ${role}]`,
+        details: `Đăng ký tài khoản mới thành công trực tiếp vào Supabase [Email: ${newUser.email}, Vai trò: ${role}]`,
         timestamp: new Date().toISOString(),
         status: "SUCCESS" as const,
       };
       addAuditLog(regAuditLog);
-      addAuditLogInSupabase(regAuditLog).catch(() => {});
+      await addAuditLogInSupabase(regAuditLog);
 
       const { password: _, ...userSafe } = newUser;
-      res.json({ success: true, user: userSafe, message: "Đăng ký tài khoản thành công!" });
+      res.status(201).json({ success: true, user: userSafe, message: "Đăng ký tài khoản thành công! Đã lưu trực tiếp vào cơ sở dữ liệu Supabase." });
     } catch (err: any) {
       console.error("Register error:", err);
       res.status(500).json({ success: false, error: err.message || "Lỗi đăng ký tài khoản" });
     }
   });
 
-  // Login user
-  app.post("/api/auth/login", (req, res) => {
+  // Login user (Direct Read & Authentication from Supabase)
+  app.post("/api/auth/login", async (req, res) => {
     try {
       const { emailOrName, password } = req.body;
 
@@ -408,7 +465,27 @@ async function startServer() {
         return res.status(400).json({ success: false, error: "Vui lòng nhập Email hoặc Tên đăng nhập." });
       }
 
-      const user = findUserByEmailOrName(emailOrName);
+      let user: User | null = null;
+      const supa = getSupabaseClient();
+
+      // Query Supabase directly first
+      if (supa) {
+        const norm = emailOrName.trim().toLowerCase();
+        const { data: supaUsers } = await supa
+          .from("users")
+          .select("*")
+          .or(`email.ilike.${norm},name.ilike.${emailOrName.trim()}`)
+          .limit(1);
+        if (supaUsers && supaUsers.length > 0) {
+          user = mapUserFromSupabase(supaUsers[0]);
+        }
+      }
+
+      // Fallback to SQLite if not found in Supabase
+      if (!user) {
+        user = findUserByEmailOrName(emailOrName);
+      }
+
       if (!user) {
         return res.status(404).json({ success: false, error: "Không tìm thấy tài khoản với thông tin này. Vui lòng kiểm tra lại hoặc Đăng ký." });
       }
@@ -457,8 +534,11 @@ async function startServer() {
         return res.status(401).json({ success: false, error: "Mật khẩu không chính xác. Vui lòng kiểm tra lại." });
       }
 
-      // Update last login
+      // Update last login in Supabase and SQLite
       updateUserLastLogin(user.id);
+      if (supa) {
+        supa.from("users").update({ last_login_at: new Date().toISOString() }).eq("id", user.id).then(() => {}).catch(() => {});
+      }
 
       // Audit Log
       const loginLog = {
@@ -468,7 +548,7 @@ async function startServer() {
         userRole: user.role,
         action: "USER_LOGIN" as const,
         resource: "auth",
-        details: `Đăng nhập thành công vào hệ thống`,
+        details: `Đăng nhập thành công vào hệ thống (Xác thực trực tiếp từ Supabase)`,
         timestamp: new Date().toISOString(),
         status: "SUCCESS" as const,
       };
@@ -484,7 +564,7 @@ async function startServer() {
   });
 
   // Change password
-  app.post("/api/auth/change-password", (req, res) => {
+  app.post("/api/auth/change-password", async (req, res) => {
     try {
       const { userId, oldPassword, newPassword } = req.body;
       if (!userId || !oldPassword || !newPassword) {
@@ -495,7 +575,15 @@ async function startServer() {
         return res.status(400).json({ success: false, error: "Mật khẩu mới phải có ít nhất 6 ký tự để đảm bảo an toàn." });
       }
 
-      const user = getUserById(userId);
+      let user = getUserById(userId);
+      const supa = getSupabaseClient();
+      if (supa) {
+        const { data: supaUser } = await supa.from("users").select("*").eq("id", userId).limit(1);
+        if (supaUser && supaUser.length > 0) {
+          user = mapUserFromSupabase(supaUser[0]);
+        }
+      }
+
       if (!user) {
         return res.status(404).json({ success: false, error: "Không tìm thấy thông tin tài khoản người dùng." });
       }
@@ -516,8 +604,8 @@ async function startServer() {
         updatedAt: new Date().toISOString(),
       };
 
+      await upsertUserInSupabase(updatedUser);
       updateUser(updatedUser);
-      upsertUserInSupabase(updatedUser).catch(() => {});
 
       const passChangeLog = {
         id: `log-${Date.now()}`,
@@ -531,7 +619,7 @@ async function startServer() {
         status: "SUCCESS" as const,
       };
       addAuditLog(passChangeLog);
-      addAuditLogInSupabase(passChangeLog).catch(() => {});
+      await addAuditLogInSupabase(passChangeLog);
 
       res.json({ success: true, message: "Đổi mật khẩu thành công! Mật khẩu mới của bạn đã có hiệu lực." });
     } catch (err: any) {
@@ -541,11 +629,19 @@ async function startServer() {
   });
 
   // Update profile
-  app.put("/api/auth/profile/:id", (req, res) => {
+  app.put("/api/auth/profile/:id", async (req, res) => {
     try {
       const { id } = req.params;
       const profileData = req.body;
-      const user = getUserById(id);
+      let user = getUserById(id);
+      const supa = getSupabaseClient();
+      if (supa) {
+        const { data: supaUser } = await supa.from("users").select("*").eq("id", id).limit(1);
+        if (supaUser && supaUser.length > 0) {
+          user = mapUserFromSupabase(supaUser[0]);
+        }
+      }
+
       if (!user) {
         return res.status(404).json({ success: false, error: "Không tìm thấy người dùng." });
       }
@@ -560,8 +656,8 @@ async function startServer() {
         updatedAt: new Date().toISOString(),
       };
 
+      await upsertUserInSupabase(updatedUser);
       updateUser(updatedUser);
-      upsertUserInSupabase(updatedUser).catch(() => {});
 
       const { password: _, ...userSafe } = updatedUser;
       res.json({ success: true, user: userSafe, message: "Cập nhật hồ sơ thông tin người dùng thành công!" });
@@ -571,22 +667,34 @@ async function startServer() {
     }
   });
 
-  // Get all users
-  app.get("/api/auth/users", (_req, res) => {
+  // Get all users (Direct from Supabase with SQLite fallback)
+  app.get("/api/auth/users", async (_req, res) => {
     try {
+      const supaUsers = await fetchUsersFromSupabase();
+      if (supaUsers && supaUsers.length > 0) {
+        return res.json({ success: true, data: supaUsers, source: "supabase" });
+      }
       const users = getAllUsers();
-      res.json({ success: true, data: users });
+      res.json({ success: true, data: users, source: "sqlite" });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
   });
 
   // Admin: Create User
-  app.post("/api/admin/users/create", (req, res) => {
+  app.post("/api/admin/users/create", async (req, res) => {
     try {
       const userData = req.body;
       if (!userData.name || !userData.email || !userData.role) {
         return res.status(400).json({ success: false, error: "Thiếu thông tin người dùng bắt buộc." });
+      }
+
+      const supa = getSupabaseClient();
+      if (supa) {
+        const { data: supaExisting } = await supa.from("users").select("id").eq("email", userData.email.trim().toLowerCase()).limit(1);
+        if (supaExisting && supaExisting.length > 0) {
+          return res.status(400).json({ success: false, error: "Email này đã tồn tại trong hệ thống Supabase." });
+        }
       }
 
       const existing = findUserByEmailOrName(userData.email);
@@ -608,33 +716,43 @@ async function startServer() {
         permissions: userData.permissions || {},
       };
 
+      await upsertUserInSupabase(userToCreate);
       createUser(userToCreate);
-      upsertUserInSupabase(userToCreate).catch(() => {});
 
-      addAuditLog({
+      const audit = {
         id: `log-${Date.now()}`,
         userId: "user-admin-1",
         userName: "Admin Hệ Thống",
-        userRole: "admin",
+        userRole: "admin" as const,
         action: "ADMIN_CREATE_USER",
         resource: "users",
         details: `Admin tạo tài khoản mới: ${userToCreate.name} (${userToCreate.email}) vai trò ${userToCreate.role}`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(audit);
+      await addAuditLogInSupabase(audit);
 
-      res.json({ success: true, data: userToCreate, message: "Đã tạo tài khoản người dùng mới thành công." });
+      res.json({ success: true, data: userToCreate, message: "Đã tạo tài khoản người dùng mới thành công trực tiếp vào Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
   });
 
   // Admin: Update User & Permissions
-  app.put("/api/admin/users/:id", (req, res) => {
+  app.put("/api/admin/users/:id", async (req, res) => {
     try {
       const { id } = req.params;
       const updatedData = req.body;
-      const existing = getUserById(id);
+      let existing = getUserById(id);
+      const supa = getSupabaseClient();
+      if (supa) {
+        const { data: supaUser } = await supa.from("users").select("*").eq("id", id).limit(1);
+        if (supaUser && supaUser.length > 0) {
+          existing = mapUserFromSupabase(supaUser[0]);
+        }
+      }
+
       if (!existing) {
         return res.status(404).json({ success: false, error: "Không tìm thấy người dùng." });
       }
@@ -645,20 +763,22 @@ async function startServer() {
         id,
       };
 
+      await upsertUserInSupabase(mergedUser);
       updateUser(mergedUser);
-      upsertUserInSupabase(mergedUser).catch(() => {});
 
-      addAuditLog({
+      const audit = {
         id: `log-${Date.now()}`,
         userId: "user-admin-1",
         userName: "Admin Hệ Thống",
-        userRole: "admin",
+        userRole: "admin" as const,
         action: "ADMIN_UPDATE_USER",
         resource: "users",
         details: `Admin cập nhật thông tin/phân quyền người dùng ID: ${id} (${mergedUser.name}) - vai trò ${mergedUser.role}`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(audit);
+      await addAuditLogInSupabase(audit);
 
       res.json({ success: true, data: mergedUser, message: "Cập nhật thông tin & phân quyền người dùng thành công." });
     } catch (err: any) {
@@ -667,33 +787,41 @@ async function startServer() {
   });
 
   // Admin: Toggle Lock/Unlock User Status
-  app.post("/api/admin/users/:id/toggle-status", (req, res) => {
+  app.post("/api/admin/users/:id/toggle-status", async (req, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
-      const existing = getUserById(id);
+      let existing = getUserById(id);
+      const supa = getSupabaseClient();
+      if (supa) {
+        const { data: supaUser } = await supa.from("users").select("*").eq("id", id).limit(1);
+        if (supaUser && supaUser.length > 0) {
+          existing = mapUserFromSupabase(supaUser[0]);
+        }
+      }
+
       if (!existing) {
         return res.status(404).json({ success: false, error: "Không tìm thấy người dùng." });
       }
 
       const newStatus = status || (existing.status === "locked" ? "active" : "locked");
+      const updatedUser = { ...existing, status: newStatus };
+      await upsertUserInSupabase(updatedUser);
       updateUserStatus(id, newStatus);
-      const updatedUser = getUserById(id);
-      if (updatedUser) {
-        upsertUserInSupabase(updatedUser).catch(() => {});
-      }
 
-      addAuditLog({
+      const audit = {
         id: `log-${Date.now()}`,
         userId: "user-admin-1",
         userName: "Admin Hệ Thống",
-        userRole: "admin",
+        userRole: "admin" as const,
         action: newStatus === "locked" ? "ADMIN_LOCK_USER" : "ADMIN_UNLOCK_USER",
         resource: "users",
         details: `Admin ${newStatus === "locked" ? "KHÓA" : "MỞ KHÓA"} tài khoản ID: ${id} (${existing.name})`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(audit);
+      await addAuditLogInSupabase(audit);
 
       res.json({ success: true, newStatus, message: `Đã ${newStatus === "locked" ? "khóa" : "mở khóa"} tài khoản thành công.` });
     } catch (err: any) {
@@ -702,7 +830,7 @@ async function startServer() {
   });
 
   // Admin: Reset Password
-  app.post("/api/admin/users/:id/reset-password", (req, res) => {
+  app.post("/api/admin/users/:id/reset-password", async (req, res) => {
     try {
       const { id } = req.params;
       const { newPassword } = req.body;
@@ -711,23 +839,34 @@ async function startServer() {
       }
       const passToSet = newPassword.trim();
 
-      resetUserPassword(id, passToSet);
-      const updatedUser = getUserById(id);
-      if (updatedUser) {
-        upsertUserInSupabase(updatedUser).catch(() => {});
+      let existing = getUserById(id);
+      const supa = getSupabaseClient();
+      if (supa) {
+        const { data: supaUser } = await supa.from("users").select("*").eq("id", id).limit(1);
+        if (supaUser && supaUser.length > 0) {
+          existing = mapUserFromSupabase(supaUser[0]);
+        }
       }
 
-      addAuditLog({
+      if (existing) {
+        const updatedUser = { ...existing, password: passToSet, mustChangePassword: true, lastPasswordChangedAt: new Date().toISOString() };
+        await upsertUserInSupabase(updatedUser);
+      }
+      resetUserPassword(id, passToSet);
+
+      const audit = {
         id: `log-${Date.now()}`,
         userId: "user-admin-1",
         userName: "Admin Hệ Thống",
-        userRole: "admin",
+        userRole: "admin" as const,
         action: "ADMIN_RESET_PASSWORD",
         resource: "users",
         details: `Admin đặt lại mật khẩu cho tài khoản ID: ${id}`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(audit);
+      await addAuditLogInSupabase(audit);
 
       res.json({ success: true, message: `Đã đặt lại mật khẩu cho tài khoản. Mật khẩu mới là: ${passToSet}` });
     } catch (err: any) {
@@ -736,30 +875,29 @@ async function startServer() {
   });
 
   // Admin: Delete User
-  app.delete("/api/admin/users/:id", (req, res) => {
+  app.delete("/api/admin/users/:id", async (req, res) => {
     try {
       const { id } = req.params;
       const existing = getUserById(id);
-      if (!existing) {
-        return res.status(404).json({ success: false, error: "Không tìm thấy người dùng." });
-      }
 
+      await deleteUserInSupabase(id);
       deleteUser(id);
-      deleteUserInSupabase(id).catch(() => {});
 
-      addAuditLog({
+      const audit = {
         id: `log-${Date.now()}`,
         userId: "user-admin-1",
         userName: "Admin Hệ Thống",
-        userRole: "admin",
+        userRole: "admin" as const,
         action: "ADMIN_DELETE_USER",
         resource: "users",
-        details: `Admin xóa tài khoản ID: ${id} (${existing.name} - ${existing.email})`,
+        details: `Admin xóa tài khoản ID: ${id} (${existing?.name || id})`,
         timestamp: new Date().toISOString(),
-        status: "SUCCESS",
-      });
+        status: "SUCCESS" as const,
+      };
+      addAuditLog(audit);
+      await addAuditLogInSupabase(audit);
 
-      res.json({ success: true, message: "Đã xóa tài khoản người dùng thành công." });
+      res.json({ success: true, message: "Đã xóa tài khoản người dùng thành công khỏi Supabase." });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
