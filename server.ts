@@ -1619,7 +1619,7 @@ Tin nhắn từ người dùng (${role === "parent" ? "Cha Mẹ" : "Học sinh"}
 Hãy đưa ra câu trả lời thấu cảm, thực tế và mang lại lời khuyên hoặc gợi ý câu nói trực tiếp để người dùng có thể áp dụng ngay.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           systemInstruction,
@@ -1675,7 +1675,7 @@ Hãy đóng vai trò chuyên gia tâm lý gia đình CODE GenZ Family và đưa 
 `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           systemInstruction: "Bạn là chuyên gia tư vấn tâm lý học hành vi gia đình Việt Nam. Luôn xuất ra JSON hợp lệ.",
@@ -1713,7 +1713,7 @@ Hãy tạo 3 câu mở đầu (icebreakers) tự nhiên, chân thành, giúp ph�
 Trả về JSON định dạng: { "icebreakers": ["câu 1", "câu 2", "câu 3"] }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",

@@ -185,7 +185,7 @@ const MainApp: React.FC = () => {
               </div>
 
               <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed mt-2">
-                Ứng dụng trí tuệ nhân tạo Gemini 3.7 Flash được huấn luyện riêng biệt theo phương pháp <strong>C-O-D-E</strong> (Connect, Open, Develop, Empathy), giúp học sinh bày tỏ suy nghĩ tự nhiên và phụ huynh thấu hiểu tâm lý con cái tuổi dậy thì.
+                Ứng dụng trí tuệ nhân tạo Gemini 3.8 Flash được huấn luyện riêng biệt theo phương pháp <strong>C-O-D-E</strong> (Connect, Open, Develop, Empathy), giúp học sinh bày tỏ suy nghĩ tự nhiên và phụ huynh thấu hiểu tâm lý con cái tuổi dậy thì.
               </p>
 
               <div className="pt-4 flex flex-wrap items-center justify-center gap-3">
